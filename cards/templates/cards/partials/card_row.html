@@ -13,11 +13,21 @@
       {% endfor %}
     </div>
   {% endif %}
-  <div class="mt-4 flex gap-2">
+  <div class="mt-4 flex gap-2" x-data="{ confirming: false }">
     <a class="btn btn-sm btn-outline" href="{% url 'cards:card_edit' deck.id card.id %}" hx-get="{% url 'cards:card_edit' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Edit</a>
-    <form method="post" action="{% url 'cards:card_delete' deck.id card.id %}" x-data @submit="if (!confirm('Delete this card?')) $event.preventDefault()">
-      {% csrf_token %}
-      <button class="btn btn-sm btn-error" type="submit" hx-post="{% url 'cards:card_delete' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Delete</button>
-    </form>
+    <button class="btn btn-sm btn-error" type="button" @click="confirming = true">Delete</button>
+    <div class="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" x-cloak x-show="confirming">
+      <div class="w-full max-w-sm rounded-lg bg-base-100 p-5 shadow-xl">
+        <h2 class="text-lg font-bold">Delete card?</h2>
+        <p class="mt-2 text-sm text-base-content/70">This removes the card from {{ deck.name }}.</p>
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <button class="btn btn-ghost" type="button" @click="confirming = false">Cancel</button>
+          <form method="post" action="{% url 'cards:card_delete' deck.id card.id %}">
+            {% csrf_token %}
+            <button class="btn btn-error w-full" type="submit" hx-post="{% url 'cards:card_delete' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 </article>

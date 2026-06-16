@@ -3,7 +3,7 @@
 {% block title %}Bulk import | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex min-h-screen flex-col gap-5 pb-8">
+  <div class="flex flex-col gap-5 pb-8">
     <a class="link" href="{% url 'cards:home' %}">Back to decks</a>
     <header>
       <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
@@ -29,9 +29,9 @@
         {{ form.text.errors }}
       </label>
       <div class="flex gap-2">
-        <button class="btn btn-primary" type="submit" name="intent" value="preview">Preview</button>
+        <button class="btn btn-primary btn-lg" type="submit" name="intent" value="preview">Preview</button>
         {% if result %}
-          <button class="btn btn-success" type="submit" name="intent" value="confirm">Import {{ result.cards|length }} cards</button>
+          <button class="btn btn-success btn-lg" type="submit" name="intent" value="confirm">Import {{ result.cards|length }} cards</button>
         {% endif %}
       </div>
     </form>

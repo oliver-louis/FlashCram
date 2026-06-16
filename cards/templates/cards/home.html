@@ -3,16 +3,13 @@
 {% block title %}Decks | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex min-h-screen flex-col gap-5 pb-8">
+  <div class="flex flex-col gap-5 pb-8">
     <header class="flex items-center justify-between gap-3">
       <div>
         <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
         <h1 class="text-3xl font-bold">Decks</h1>
       </div>
-      <div class="flex gap-2">
-        <a class="btn btn-ghost" href="{% url 'cards:settings' %}">Settings</a>
-        <a class="btn btn-primary" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
-      </div>
+      <a class="btn btn-primary" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
     </header>
 
     <div id="deck-form-slot"></div>
@@ -21,9 +18,10 @@
       {% for deck in decks %}
         {% include "cards/partials/deck_card.html" %}
       {% empty %}
-        <div id="empty-deck-list" class="rounded-lg border border-dashed border-base-300 bg-base-100 p-6 text-center">
+        <div id="empty-deck-list" class="rounded-lg border border-dashed border-base-300 bg-base-100 p-8 text-center">
           <h2 class="text-xl font-semibold">No decks yet</h2>
           <p class="mt-2 text-base-content/70">Create your first deck to start building a cram set.</p>
+          <a class="btn btn-primary mt-4" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">Create deck</a>
         </div>
       {% endfor %}
     </section>

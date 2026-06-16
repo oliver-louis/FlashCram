@@ -1,7 +1,7 @@
 # FlashCram
 
-FlashCram is a self-hosted, single-user, mobile-first flashcard app for exam cram. Phase 0 contains the Django scaffold, data model, admin, Docker runtime, and tests.
-The current app supports deck/card CRUD, manual review modes, bulk text import, JSON backup import/export, and server-persisted settings.
+FlashCram is a self-hosted, single-user, mobile-first flashcard app for exam cram.
+The current app supports deck/card CRUD, manual review modes, card search/filter, bulk text import, JSON backup import/export, server-persisted settings, and install-only PWA metadata.
 
 ## Run With Docker
 
@@ -49,3 +49,4 @@ Useful variables:
 ## Phase Scope
 
 This MVP intentionally does not include auth, markdown rendering, sync, or offline/PWA features.
+The included web manifest is only for home-screen installability; there is no service worker or offline data cache.

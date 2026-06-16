@@ -1,0 +1,11 @@
+<section id="review-panel" class="flex min-h-[calc(100vh-8rem)] flex-col justify-center gap-6 text-center">
+  <div class="mx-auto max-w-md">
+    <p class="text-sm font-semibold uppercase tracking-wide text-primary">{{ deck.name }}</p>
+    <h1 class="mt-2 text-3xl font-bold">Nothing to review</h1>
+    <p class="mt-3 text-base-content/70">{{ empty_mode_label }} has no eligible cards right now.</p>
+  </div>
+  <div class="grid gap-3 sm:grid-cols-2">
+    <a class="btn btn-primary btn-lg" href="{% url 'cards:deck_detail' deck.id %}">Back to deck</a>
+    <a class="btn btn-outline btn-lg" href="{% url 'cards:card_create' deck.id %}">Add card</a>
+  </div>
+</section>

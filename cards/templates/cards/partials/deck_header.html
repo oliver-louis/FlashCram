@@ -24,8 +24,20 @@
     </div>
   {% endif %}
 
-  <form method="post" action="{% url 'cards:deck_delete' deck.id %}" x-data @submit="if (!confirm('Delete this deck and all of its cards?')) $event.preventDefault()">
-    {% csrf_token %}
-    <button class="btn btn-error btn-sm" type="submit" hx-post="{% url 'cards:deck_delete' deck.id %}">Delete deck</button>
-  </form>
+  <div x-data="{ confirming: false }">
+    <button class="btn btn-error btn-sm" type="button" @click="confirming = true">Delete deck</button>
+    <div class="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" x-cloak x-show="confirming">
+      <div class="w-full max-w-sm rounded-lg bg-base-100 p-5 shadow-xl">
+        <h2 class="text-lg font-bold">Delete deck?</h2>
+        <p class="mt-2 text-sm text-base-content/70">This also deletes every card in this deck.</p>
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <button class="btn btn-ghost" type="button" @click="confirming = false">Cancel</button>
+          <form method="post" action="{% url 'cards:deck_delete' deck.id %}">
+            {% csrf_token %}
+            <button class="btn btn-error w-full" type="submit" hx-post="{% url 'cards:deck_delete' deck.id %}">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>

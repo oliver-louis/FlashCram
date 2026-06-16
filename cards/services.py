@@ -83,6 +83,23 @@ def cards_for_deck(deck):
     return deck.cards.all().order_by("created_at", "id")
 
 
+def filter_cards_for_deck(deck, query="", tag="") -> list:
+    query = (query or "").strip().lower()
+    normalized_tag = normalize_tags(tag)
+    selected_tag = normalized_tag[0] if normalized_tag else ""
+    cards = list(cards_for_deck(deck))
+
+    if query:
+        cards = [
+            card
+            for card in cards
+            if query in card.front.lower() or query in card.back.lower()
+        ]
+    if selected_tag:
+        cards = [card for card in cards if selected_tag in (card.tags or [])]
+    return cards
+
+
 def get_deck(deck_id):
     from .models import Deck
 

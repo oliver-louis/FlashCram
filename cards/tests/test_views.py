@@ -330,3 +330,102 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, "Imported 1 decks and 1 cards.")
         self.assertEqual(Deck.objects.count(), 1)
         self.assertEqual(Card.objects.count(), 1)
+
+
+class PhaseThreePolishTests(TestCase):
+    def setUp(self):
+        self.deck = Deck.objects.create(name="Search deck")
+        self.front_match = Card.objects.create(
+            deck=self.deck,
+            front="Kernel modules",
+            back="Loaded with modprobe",
+            tags=["linux"],
+        )
+        self.back_match = Card.objects.create(
+            deck=self.deck,
+            front="grep inverse",
+            back="Use grep -v to exclude matching lines",
+            tags=["shell"],
+        )
+        self.tag_match = Card.objects.create(
+            deck=self.deck,
+            front="CIDR",
+            back="Subnet notation",
+            tags=["network"],
+        )
+
+    def test_card_filter_matches_front_back_tag_and_combined(self):
+        front_response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {"q": "kernel"},
+            **HTMX,
+        )
+        self.assertContains(front_response, "Kernel modules")
+        self.assertNotContains(front_response, "grep inverse")
+
+        back_response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {"q": "exclude"},
+            **HTMX,
+        )
+        self.assertContains(back_response, "grep inverse")
+        self.assertNotContains(back_response, "CIDR")
+
+        tag_response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {"tag": "network"},
+            **HTMX,
+        )
+        self.assertContains(tag_response, "CIDR")
+        self.assertNotContains(tag_response, "Kernel modules")
+
+        combined_response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {"q": "grep", "tag": "shell"},
+            **HTMX,
+        )
+        self.assertContains(combined_response, "grep inverse")
+        self.assertNotContains(combined_response, "CIDR")
+
+    def test_card_filter_returns_fragment_and_no_match_empty_state(self):
+        response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {"q": "notfound"},
+            **HTMX,
+        )
+
+        self.assertContains(response, 'id="card-list"')
+        self.assertContains(response, "No matching cards")
+        self.assertNotContains(response, "<!doctype html>")
+
+    def test_empty_states_render(self):
+        Deck.objects.all().delete()
+        home = self.client.get(reverse("cards:home"))
+        self.assertContains(home, "No decks yet")
+
+        empty_deck = Deck.objects.create(name="Empty")
+        detail = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": empty_deck.id}))
+        self.assertContains(detail, "No cards yet")
+
+        nothing = self.client.get(
+            reverse("cards:review_start_mode", kwargs={"deck_id": empty_deck.id, "mode": "weak"})
+        )
+        self.assertContains(nothing, "Nothing to review")
+        self.assertNotIn(REVIEW_SESSION_KEY, self.client.session)
+
+    def test_theme_toggle_persists_dark_and_light_and_renders(self):
+        for theme in [Settings.Theme.LIGHT, Settings.Theme.DARK]:
+            response = self.client.post(
+                reverse("cards:settings"),
+                {
+                    "form": "settings",
+                    "theme": theme,
+                    "weak_min_wrong": 2,
+                    "weak_min_ratio": 0.33,
+                    "show_less_weight": 0.25,
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(Settings.objects.get().theme, theme)
+            home = self.client.get(reverse("cards:home"))
+            self.assertContains(home, f'data-theme="{theme}"')

@@ -17,6 +17,7 @@ from .services import (
     current_review_card,
     decks_queryset,
     export_backup,
+    filter_cards_for_deck,
     get_card_for_deck,
     get_deck,
     get_settings,
@@ -45,7 +46,25 @@ def deck_detail(request, deck_id):
     return render(
         request,
         "cards/deck_detail.html",
-        {"deck": deck, "cards": cards_for_deck(deck)},
+        {"deck": deck, "cards": cards_for_deck(deck), "query": "", "selected_tag": ""},
+    )
+
+
+def card_list(request, deck_id):
+    deck = get_deck(deck_id)
+    query = request.GET.get("q", "")
+    selected_tag = request.GET.get("tag", "")
+    cards = filter_cards_for_deck(deck, query=query, tag=selected_tag)
+    return render(
+        request,
+        "cards/partials/card_list.html",
+        {
+            "deck": deck,
+            "cards": cards,
+            "query": query,
+            "selected_tag": selected_tag,
+            "is_filtered": bool(query.strip() or selected_tag.strip()),
+        },
     )
 
 
@@ -198,9 +217,9 @@ def review_start_mode(request, deck_id, mode):
     deck = get_deck(deck_id)
     session = start_review_session(request, deck, mode)
     if review_is_complete(session):
-        summary = session["summary"].copy()
+        mode_label = session["mode_label"]
         clear_review_session(request)
-        return render(request, "cards/review.html", {"deck": deck, "summary": summary})
+        return render(request, "cards/review.html", {"deck": deck, "empty_mode_label": mode_label})
 
     return render(
         request,
@@ -215,9 +234,9 @@ def review_start_tag(request, deck_id):
     tags = request.POST.getlist("tags")
     session = start_review_session(request, deck, "tag", {"tags": tags})
     if review_is_complete(session):
-        summary = session["summary"].copy()
+        mode_label = session["mode_label"]
         clear_review_session(request)
-        return render(request, "cards/review.html", {"deck": deck, "summary": summary})
+        return render(request, "cards/review.html", {"deck": deck, "empty_mode_label": mode_label})
     return render(request, "cards/review.html", review_context(session))
 
 

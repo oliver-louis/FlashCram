@@ -4,14 +4,26 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#18181b">
     <title>{% block title %}FlashCram{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+    <link rel="icon" href="{% static 'icons/icon.svg' %}" type="image/svg+xml">
     <style>[x-cloak] { display: none !important; }</style>
     <script defer src="{% static 'vendor/htmx.min.js' %}"></script>
     <script defer src="{% static 'vendor/alpine.min.js' %}"></script>
   </head>
   <body class="min-h-screen bg-base-200 text-base-content" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-    <main class="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-6">
+    <header class="sticky top-0 z-30 border-b border-base-300 bg-base-200/95 backdrop-blur">
+      <nav class="mx-auto flex w-full max-w-4xl items-center justify-between gap-2 px-4 py-3">
+        <a class="text-lg font-black" href="{% url 'cards:home' %}">FlashCram</a>
+        <div class="flex gap-1">
+          <a class="btn btn-ghost btn-sm" href="{% url 'cards:bulk_import' %}">Import</a>
+          <a class="btn btn-ghost btn-sm" href="{% url 'cards:settings' %}">Settings</a>
+        </div>
+      </nav>
+    </header>
+    <main class="mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-4xl flex-col px-4 py-5">
       {% block content %}{% endblock %}
     </main>
   </body>

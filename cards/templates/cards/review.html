@@ -3,7 +3,9 @@
 {% block title %}Review {{ deck.name }} | FlashCram{% endblock %}
 
 {% block content %}
-  {% if summary %}
+  {% if empty_mode_label %}
+    {% include "cards/partials/review_empty.html" %}
+  {% elif summary %}
     {% include "cards/partials/review_summary.html" %}
   {% else %}
     {% include "cards/partials/review_card.html" %}

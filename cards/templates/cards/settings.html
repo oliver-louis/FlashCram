@@ -3,7 +3,7 @@
 {% block title %}Settings | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex min-h-screen flex-col gap-5 pb-8">
+  <div class="flex flex-col gap-5 pb-8">
     <a class="link" href="{% url 'cards:home' %}">Back to decks</a>
     <header>
       <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
@@ -13,10 +13,19 @@
     <form method="post" class="space-y-4 rounded-lg bg-base-100 p-4 shadow-sm">
       {% csrf_token %}
       <input type="hidden" name="form" value="settings">
-      <label class="form-control">
+      <div class="form-control">
         <span class="label-text">Theme</span>
-        {{ settings_form.theme }}
-      </label>
+        <div class="join w-full">
+          <label class="btn join-item flex-1 {% if settings.theme == 'dark' %}btn-primary{% endif %}">
+            <input class="hidden" type="radio" name="theme" value="dark" {% if settings.theme == 'dark' %}checked{% endif %}>
+            Dark
+          </label>
+          <label class="btn join-item flex-1 {% if settings.theme == 'light' %}btn-primary{% endif %}">
+            <input class="hidden" type="radio" name="theme" value="light" {% if settings.theme == 'light' %}checked{% endif %}>
+            Light
+          </label>
+        </div>
+      </div>
       <label class="form-control">
         <span class="label-text">Weak minimum wrong</span>
         {{ settings_form.weak_min_wrong }}

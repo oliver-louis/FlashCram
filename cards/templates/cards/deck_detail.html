@@ -3,12 +3,12 @@
 {% block title %}{{ deck.name }} | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex min-h-screen flex-col gap-5 pb-8">
+  <div class="flex flex-col gap-5 pb-8">
     <a class="link" href="{% url 'cards:home' %}">Back to decks</a>
 
     {% include "cards/partials/deck_header.html" %}
 
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
       <a class="btn btn-primary btn-lg" href="{% url 'cards:review_start' deck.id %}">Review</a>
       <a class="btn btn-secondary btn-lg" href="{% url 'cards:review_start_mode' deck.id 'random' %}">Random</a>
       <a class="btn btn-outline btn-lg" href="{% url 'cards:review_start_mode' deck.id 'weak' %}">Review weak</a>
@@ -42,16 +42,19 @@
         <h2 class="text-xl font-bold">Cards</h2>
         <span class="badge badge-neutral">{{ deck.card_count }}</span>
       </div>
-      <div id="card-list" class="grid gap-3">
-        {% for card in cards %}
-          {% include "cards/partials/card_row.html" %}
-        {% empty %}
-          <div id="empty-card-list" class="rounded-lg border border-dashed border-base-300 bg-base-100 p-6 text-center">
-            <h3 class="text-lg font-semibold">No cards yet</h3>
-            <p class="mt-2 text-base-content/70">Add a front and back to make this deck reviewable.</p>
-          </div>
-        {% endfor %}
-      </div>
+      <form id="card-filter-form" class="grid gap-3 rounded-lg bg-base-100 p-3 shadow-sm sm:grid-cols-[1fr_auto]" hx-get="{% url 'cards:card_list' deck.id %}" hx-target="#card-list" hx-swap="outerHTML" hx-trigger="keyup changed delay:250ms from:input[name='q'], search from:input[name='q'], change from:select[name='tag']">
+        <label class="input input-bordered flex items-center gap-2">
+          <span class="text-base-content/50">Search</span>
+          <input class="grow" type="search" name="q" value="{{ query }}" placeholder="front or back">
+        </label>
+        <select class="select select-bordered w-full sm:w-44" name="tag">
+          <option value="">All tags</option>
+          {% for tag in deck.tags_used %}
+            <option value="{{ tag }}" {% if selected_tag == tag %}selected{% endif %}>{{ tag }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      {% include "cards/partials/card_list.html" %}
     </section>
   </div>
 {% endblock %}
