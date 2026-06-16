@@ -1,6 +1,7 @@
 # FlashCram
 
 FlashCram is a self-hosted, single-user, mobile-first flashcard app for exam cram. Phase 0 contains the Django scaffold, data model, admin, Docker runtime, and tests.
+The current app supports deck/card CRUD, manual review modes, bulk text import, JSON backup import/export, and server-persisted settings.
 
 ## Run With Docker
 
@@ -16,6 +17,12 @@ HOST_PORT=8001 docker compose up --build
 ```
 
 SQLite is stored on the `flashcram-data` named volume at `/data/flashcram.sqlite3` inside the container. The app reads its database from `DATABASE_URL`.
+
+Useful app routes:
+
+- `/` — deck list
+- `/bulk-import/` — paste-import cards into an existing or new deck
+- `/settings/` — theme, weak-card thresholds, random weighting, and JSON backup/import
 
 ## Local Development
 
@@ -41,4 +48,4 @@ Useful variables:
 
 ## Phase Scope
 
-P0 intentionally does not include deck/card UI flows, review sessions, import/export, auth, markdown rendering, or offline/PWA features.
+This MVP intentionally does not include auth, markdown rendering, sync, or offline/PWA features.

@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 
-from cards.models import Card, Deck
+from cards.models import Card, Deck, Settings
 from cards.services import REVIEW_SESSION_KEY
 
 
@@ -214,3 +214,119 @@ class ReviewAllViewTests(TestCase):
         self.assertContains(response, "Session complete")
         self.assertContains(response, "reviewed")
         self.assertNotIn(REVIEW_SESSION_KEY, self.client.session)
+
+    def test_hidden_mode_restore_keep_hidden_and_undo(self):
+        first = self.make_card("first", status=Card.Status.HIDDEN)
+        second = self.make_card("second", status=Card.Status.HIDDEN)
+
+        response = self.client.get(
+            reverse("cards:review_start_mode", kwargs={"deck_id": self.deck.id, "mode": "hidden"})
+        )
+        session = self.client.session[REVIEW_SESSION_KEY]
+        self.assertEqual(session["queue"], [str(first.id), str(second.id)])
+        self.assertContains(response, "Hidden cards")
+        self.assertContains(response, "Restore")
+
+        response = self.grade("restore")
+        first.refresh_from_db()
+        self.assertEqual(first.status, Card.Status.NORMAL)
+        self.assertContains(response, "second")
+
+        response = self.client.post(reverse("cards:review_undo"), **HTMX)
+        first.refresh_from_db()
+        session = self.client.session[REVIEW_SESSION_KEY]
+        self.assertEqual(first.status, Card.Status.HIDDEN)
+        self.assertEqual(session["cursor"], 0)
+        self.assertContains(response, "first")
+
+        self.grade("keep_hidden")
+        first.refresh_from_db()
+        self.assertEqual(first.status, Card.Status.HIDDEN)
+
+
+class PhaseTwoViewTests(TestCase):
+    def test_deck_detail_renders_phase_two_actions(self):
+        deck = Deck.objects.create(name="Actions")
+        Card.objects.create(deck=deck, front="front", back="back", tags=["shell"])
+
+        response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
+
+        self.assertContains(response, "Random")
+        self.assertContains(response, "Review weak")
+        self.assertContains(response, "Bulk import")
+        self.assertContains(response, "Review by tag")
+
+    def test_bulk_import_preview_and_confirm_existing_deck(self):
+        deck = Deck.objects.create(name="Import target")
+        payload = {
+            "deck": str(deck.id),
+            "new_deck_name": "",
+            "text": "Q1 :: A1 #tag\nbad line\nQ2 :: A2",
+        }
+
+        preview = self.client.post(reverse("cards:bulk_import"), {**payload, "intent": "preview"})
+        self.assertContains(preview, "2 cards detected")
+        self.assertContains(preview, "1 lines skipped")
+        self.assertEqual(Card.objects.count(), 0)
+
+        confirm = self.client.post(reverse("cards:bulk_import"), {**payload, "intent": "confirm"})
+        self.assertEqual(confirm.status_code, 302)
+        self.assertEqual(Card.objects.count(), 2)
+        self.assertEqual(Card.objects.first().tags, ["tag"])
+
+    def test_bulk_import_can_create_new_deck(self):
+        response = self.client.post(
+            reverse("cards:bulk_import"),
+            {
+                "deck": "",
+                "new_deck_name": "New import",
+                "text": "Front :: Back",
+                "intent": "confirm",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        deck = Deck.objects.get(name="New import")
+        self.assertEqual(deck.card_count, 1)
+
+    def test_settings_persist_and_render_theme(self):
+        response = self.client.post(
+            reverse("cards:settings"),
+            {
+                "form": "settings",
+                "theme": Settings.Theme.LIGHT,
+                "weak_min_wrong": 3,
+                "weak_min_ratio": 0.5,
+                "show_less_weight": 0.1,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        settings = Settings.objects.get()
+        self.assertEqual(settings.theme, Settings.Theme.LIGHT)
+        self.assertEqual(settings.weak_min_wrong, 3)
+        self.assertEqual(settings.weak_min_ratio, 0.5)
+        self.assertEqual(settings.show_less_weight, 0.1)
+
+        home = self.client.get(reverse("cards:home"))
+        self.assertContains(home, 'data-theme="light"')
+
+    def test_json_export_and_import_view(self):
+        deck = Deck.objects.create(name="Exportable")
+        Card.objects.create(deck=deck, front="Front", back="Back")
+
+        export = self.client.get(reverse("cards:export_all"))
+        self.assertEqual(export.status_code, 200)
+        self.assertEqual(export["Content-Type"], "application/json")
+        data = export.json()
+        self.assertEqual(data["version"], 1)
+        self.assertEqual(data["decks"][0]["name"], "Exportable")
+
+        Deck.objects.all().delete()
+        response = self.client.post(
+            reverse("cards:settings"),
+            {"form": "json_import", "backup_json": export.content.decode()},
+        )
+        self.assertContains(response, "Imported 1 decks and 1 cards.")
+        self.assertEqual(Deck.objects.count(), 1)
+        self.assertEqual(Card.objects.count(), 1)

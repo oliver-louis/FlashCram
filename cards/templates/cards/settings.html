@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Settings | FlashCram{% endblock %}
+
+{% block content %}
+  <div class="flex min-h-screen flex-col gap-5 pb-8">
+    <a class="link" href="{% url 'cards:home' %}">Back to decks</a>
+    <header>
+      <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
+      <h1 class="text-3xl font-bold">Settings</h1>
+    </header>
+
+    <form method="post" class="space-y-4 rounded-lg bg-base-100 p-4 shadow-sm">
+      {% csrf_token %}
+      <input type="hidden" name="form" value="settings">
+      <label class="form-control">
+        <span class="label-text">Theme</span>
+        {{ settings_form.theme }}
+      </label>
+      <label class="form-control">
+        <span class="label-text">Weak minimum wrong</span>
+        {{ settings_form.weak_min_wrong }}
+      </label>
+      <label class="form-control">
+        <span class="label-text">Weak minimum ratio</span>
+        {{ settings_form.weak_min_ratio }}
+      </label>
+      <label class="form-control">
+        <span class="label-text">Show-less random weight</span>
+        {{ settings_form.show_less_weight }}
+      </label>
+      <button class="btn btn-primary" type="submit">Save settings</button>
+    </form>
+
+    <section class="space-y-4 rounded-lg bg-base-100 p-4 shadow-sm">
+      <h2 class="text-xl font-bold">Backup</h2>
+      <a class="btn btn-outline" href="{% url 'cards:export_all' %}">Export all JSON</a>
+      <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="form" value="json_import">
+        <label class="form-control">
+          <span class="label-text">Import JSON</span>
+          {{ import_form.backup_json }}
+          {{ import_form.backup_json.errors }}
+        </label>
+        <button class="btn btn-primary" type="submit">Import all JSON</button>
+      </form>
+      {% if import_result %}
+        <div class="alert alert-success">Imported {{ import_result.decks }} decks and {{ import_result.cards }} cards.</div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Card, Deck
+from .models import Card, Deck, Settings
 from .services import normalize_tags
 
 
@@ -48,3 +48,50 @@ class CardForm(forms.ModelForm):
         if commit:
             card.save()
         return card
+
+
+class SettingsForm(forms.ModelForm):
+    class Meta:
+        model = Settings
+        fields = ["theme", "weak_min_wrong", "weak_min_ratio", "show_less_weight"]
+        widgets = {
+            "theme": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "weak_min_wrong": forms.NumberInput(attrs={"class": "input input-bordered w-full", "min": 0}),
+            "weak_min_ratio": forms.NumberInput(
+                attrs={"class": "input input-bordered w-full", "min": 0, "max": 1, "step": "0.01"}
+            ),
+            "show_less_weight": forms.NumberInput(
+                attrs={"class": "input input-bordered w-full", "min": 0, "step": "0.01"}
+            ),
+        }
+
+
+class BulkImportForm(forms.Form):
+    deck = forms.ModelChoiceField(
+        queryset=Deck.objects.none(),
+        required=False,
+        widget=forms.Select(attrs={"class": "select select-bordered w-full"}),
+    )
+    new_deck_name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input input-bordered w-full"}),
+    )
+    text = forms.CharField(
+        widget=forms.Textarea(attrs={"class": "textarea textarea-bordered min-h-72 w-full", "rows": 14})
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["deck"].queryset = Deck.objects.all().order_by("created_at", "name")
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get("deck") and not cleaned.get("new_deck_name"):
+            raise forms.ValidationError("Choose a deck or enter a new deck name.")
+        return cleaned
+
+
+class JsonImportForm(forms.Form):
+    backup_json = forms.CharField(
+        widget=forms.Textarea(attrs={"class": "textarea textarea-bordered min-h-72 w-full", "rows": 14})
+    )

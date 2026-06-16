@@ -1,21 +1,31 @@
+import json
+
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import CardForm, DeckForm
+from .forms import BulkImportForm, CardForm, DeckForm, JsonImportForm, SettingsForm
+from .models import Deck
 from .services import (
+    REVIEW_ALL_MODE,
+    REVIEW_HIDDEN_MODE,
     apply_review_action,
     cards_for_deck,
     clear_review_session,
+    create_cards_from_parsed,
     current_review_card,
     decks_queryset,
+    export_backup,
     get_card_for_deck,
     get_deck,
+    get_settings,
+    import_backup,
+    parse_bulk_cards,
     review_is_complete,
     review_progress,
     session_deck,
-    start_review_all_session,
+    start_review_session,
     undo_last_review_action,
 )
 
@@ -181,8 +191,12 @@ def card_delete(request, deck_id, card_id):
 
 
 def review_start(request, deck_id):
+    return review_start_mode(request, deck_id, REVIEW_ALL_MODE)
+
+
+def review_start_mode(request, deck_id, mode):
     deck = get_deck(deck_id)
-    session = start_review_all_session(request, deck)
+    session = start_review_session(request, deck, mode)
     if review_is_complete(session):
         summary = session["summary"].copy()
         clear_review_session(request)
@@ -193,6 +207,18 @@ def review_start(request, deck_id):
         "cards/review.html",
         review_context(session),
     )
+
+
+@require_POST
+def review_start_tag(request, deck_id):
+    deck = get_deck(deck_id)
+    tags = request.POST.getlist("tags")
+    session = start_review_session(request, deck, "tag", {"tags": tags})
+    if review_is_complete(session):
+        summary = session["summary"].copy()
+        clear_review_session(request)
+        return render(request, "cards/review.html", {"deck": deck, "summary": summary})
+    return render(request, "cards/review.html", review_context(session))
 
 
 @require_POST
@@ -234,4 +260,79 @@ def review_context(session):
         "progress_current": progress_current,
         "progress_total": progress_total,
         "can_undo": bool(session.get("log")),
+        "is_hidden_mode": session.get("mode") == REVIEW_HIDDEN_MODE,
     }
+
+
+def bulk_import(request):
+    result = None
+    created_count = None
+    form = BulkImportForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        result = parse_bulk_cards(form.cleaned_data["text"])
+        if request.POST.get("intent") == "confirm":
+            deck = form.cleaned_data["deck"]
+            if deck is None:
+                deck = Deck.objects.create(name=form.cleaned_data["new_deck_name"])
+            create_cards_from_parsed(deck, result.cards)
+            created_count = len(result.cards)
+            return redirect("cards:deck_detail", deck_id=deck.id)
+
+    return render(
+        request,
+        "cards/bulk_import.html",
+        {
+            "form": form,
+            "result": result,
+            "created_count": created_count,
+        },
+    )
+
+
+def settings_view(request):
+    settings = get_settings()
+    settings_form = SettingsForm(instance=settings)
+    import_form = JsonImportForm()
+    import_result = None
+
+    if request.method == "POST":
+        if request.POST.get("form") == "settings":
+            settings_form = SettingsForm(request.POST, instance=settings)
+            if settings_form.is_valid():
+                settings_form.save()
+                return redirect("cards:settings")
+        elif request.POST.get("form") == "json_import":
+            import_form = JsonImportForm(request.POST)
+            if import_form.is_valid():
+                import_result = import_backup(import_form.cleaned_data["backup_json"])
+
+    return render(
+        request,
+        "cards/settings.html",
+        {
+            "settings_form": settings_form,
+            "import_form": import_form,
+            "import_result": import_result,
+        },
+    )
+
+
+def export_all(request):
+    payload = export_backup()
+    return json_response(payload, "flashcram-backup.json")
+
+
+def export_deck(request, deck_id):
+    deck = get_deck(deck_id)
+    payload = export_backup([deck])
+    return json_response(payload, f"flashcram-{deck.id}.json")
+
+
+def json_response(payload, filename):
+    response = HttpResponse(
+        json.dumps(payload, indent=2),
+        content_type="application/json",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

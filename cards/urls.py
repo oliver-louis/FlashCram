@@ -22,6 +22,20 @@ urlpatterns = [
         name="card_delete",
     ),
     path("decks/<uuid:deck_id>/review/", views.review_start, name="review_start"),
+    path(
+        "decks/<uuid:deck_id>/review/tag/",
+        views.review_start_tag,
+        name="review_start_tag",
+    ),
+    path(
+        "decks/<uuid:deck_id>/review/<str:mode>/",
+        views.review_start_mode,
+        name="review_start_mode",
+    ),
+    path("decks/<uuid:deck_id>/export/", views.export_deck, name="export_deck"),
+    path("bulk-import/", views.bulk_import, name="bulk_import"),
+    path("settings/", views.settings_view, name="settings"),
+    path("export/", views.export_all, name="export_all"),
     path("review/grade/<str:action>/", views.review_grade, name="review_grade"),
     path("review/undo/", views.review_undo, name="review_undo"),
 ]

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk import | FlashCram{% endblock %}
+
+{% block content %}
+  <div class="flex min-h-screen flex-col gap-5 pb-8">
+    <a class="link" href="{% url 'cards:home' %}">Back to decks</a>
+    <header>
+      <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
+      <h1 class="text-3xl font-bold">Bulk import</h1>
+    </header>
+
+    <form method="post" class="space-y-4 rounded-lg bg-base-100 p-4 shadow-sm">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <label class="form-control">
+        <span class="label-text">Existing deck</span>
+        {{ form.deck }}
+      </label>
+      <label class="form-control">
+        <span class="label-text">Or create new deck</span>
+        {{ form.new_deck_name }}
+      </label>
+      <label class="form-control">
+        <span class="label-text">Cards</span>
+        {{ form.text }}
+        {{ form.text.errors }}
+      </label>
+      <div class="flex gap-2">
+        <button class="btn btn-primary" type="submit" name="intent" value="preview">Preview</button>
+        {% if result %}
+          <button class="btn btn-success" type="submit" name="intent" value="confirm">Import {{ result.cards|length }} cards</button>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if result %}
+      <section class="rounded-lg bg-base-100 p-4 shadow-sm">
+        <h2 class="text-xl font-bold">Preview</h2>
+        <p class="mt-1 text-base-content/70">{{ result.cards|length }} cards detected, {{ result.skipped_count }} lines skipped. Format: {{ result.detected_format }}</p>
+        <div class="mt-4 grid gap-3">
+          {% for card in result.cards %}
+            <article class="rounded bg-base-200 p-3">
+              <p class="font-semibold">{{ card.front }}</p>
+              <p class="mt-1 text-sm text-base-content/70">{{ card.back }}</p>
+              {% if card.tags %}
+                <div class="mt-2 flex flex-wrap gap-2">
+                  {% for tag in card.tags %}
+                    <span class="badge badge-outline badge-sm">{{ tag }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -9,7 +9,10 @@
         <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
         <h1 class="text-3xl font-bold">Decks</h1>
       </div>
-      <a class="btn btn-primary" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
+      <div class="flex gap-2">
+        <a class="btn btn-ghost" href="{% url 'cards:settings' %}">Settings</a>
+        <a class="btn btn-primary" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
+      </div>
     </header>
 
     <div id="deck-form-slot"></div>
