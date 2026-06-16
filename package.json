@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i ./static_src/input.css -o ./static/css/app.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "daisyui": "^5.0.0",
+    "tailwindcss": "^4.1.0"
+  },
+  "dependencies": {
+    "alpinejs": "^3.14.0",
+    "htmx.org": "^2.0.0"
+  }
+}

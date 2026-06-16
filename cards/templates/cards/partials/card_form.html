@@ -1,0 +1,33 @@
+<section id="{% if card %}card-{{ card.id }}{% else %}card-form-panel{% endif %}" class="rounded-lg bg-base-100 p-4 shadow-sm">
+  <h2 class="mb-4 text-xl font-bold">{{ title }}</h2>
+  <form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="{% if card %}#card-{{ card.id }}{% else %}#card-list{% endif %}" hx-swap="{% if card %}outerHTML{% else %}afterbegin{% endif %}" class="space-y-4">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <label class="form-control">
+      <span class="label-text">Front</span>
+      {{ form.front }}
+      {{ form.front.errors }}
+    </label>
+    <label class="form-control">
+      <span class="label-text">Back</span>
+      {{ form.back }}
+      {{ form.back.errors }}
+    </label>
+    <label class="form-control">
+      <span class="label-text">Tags</span>
+      {{ form.tags_text }}
+      {{ form.tags_text.errors }}
+    </label>
+    <label class="form-control">
+      <span class="label-text">Status</span>
+      {{ form.status }}
+      {{ form.status.errors }}
+    </label>
+    <div class="flex gap-2">
+      <button class="btn btn-primary" type="submit">{{ submit_label }}</button>
+      <a class="btn btn-ghost" href="{% url 'cards:deck_detail' deck.id %}">Cancel</a>
+    </div>
+  </form>
+</section>

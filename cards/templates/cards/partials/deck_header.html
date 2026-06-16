@@ -1,0 +1,31 @@
+<section id="deck-header" class="space-y-4 rounded-lg bg-base-100 p-4 shadow-sm">
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-bold">{{ deck.name }}</h1>
+      {% if deck.description %}
+        <p class="mt-2 text-base-content/70">{{ deck.description }}</p>
+      {% endif %}
+    </div>
+    <a class="btn btn-sm btn-outline" href="{% url 'cards:deck_edit' deck.id %}" hx-get="{% url 'cards:deck_edit' deck.id %}" hx-target="#deck-header" hx-swap="outerHTML">Edit</a>
+  </div>
+
+  <div class="grid grid-cols-4 gap-2 text-center text-sm">
+    <div class="rounded bg-base-200 p-2"><strong>{{ deck.card_count }}</strong><br>cards</div>
+    <div class="rounded bg-base-200 p-2"><strong>{{ deck.unseen_count }}</strong><br>unseen</div>
+    <div class="rounded bg-base-200 p-2"><strong>{{ deck.weak_count }}</strong><br>weak</div>
+    <div class="rounded bg-base-200 p-2"><strong>{{ deck.hidden_count }}</strong><br>hidden</div>
+  </div>
+
+  {% if deck.tags_used %}
+    <div class="flex flex-wrap gap-2">
+      {% for tag in deck.tags_used %}
+        <span class="badge badge-outline">{{ tag }}</span>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'cards:deck_delete' deck.id %}" x-data @submit="if (!confirm('Delete this deck and all of its cards?')) $event.preventDefault()">
+    {% csrf_token %}
+    <button class="btn btn-error btn-sm" type="submit" hx-post="{% url 'cards:deck_delete' deck.id %}">Delete deck</button>
+  </form>
+</section>

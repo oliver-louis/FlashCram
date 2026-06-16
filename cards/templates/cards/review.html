@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Review {{ deck.name }} | FlashCram{% endblock %}
+
+{% block content %}
+  {% if summary %}
+    {% include "cards/partials/review_summary.html" %}
+  {% else %}
+    {% include "cards/partials/review_card.html" %}
+  {% endif %}
+{% endblock %}

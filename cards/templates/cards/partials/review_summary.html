@@ -1,0 +1,19 @@
+<section id="review-panel" class="flex min-h-screen flex-col justify-center gap-6 text-center">
+  <div>
+    <p class="text-sm font-semibold uppercase tracking-wide text-primary">{{ deck.name }}</p>
+    <h1 class="mt-2 text-3xl font-bold">Session complete</h1>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3 text-center">
+    <div class="rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.reviewed }}</strong><br>reviewed</div>
+    <div class="rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.correct }}</strong><br>correct</div>
+    <div class="rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.wrong }}</strong><br>wrong</div>
+    <div class="rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.marked_less }}</strong><br>show less</div>
+    <div class="col-span-2 rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.marked_hidden }}</strong><br>hidden</div>
+  </div>
+
+  <div class="grid gap-3">
+    <a class="btn btn-primary btn-lg" href="{% url 'cards:review_start' deck.id %}">Review again</a>
+    <a class="btn btn-outline btn-lg" href="{% url 'cards:deck_detail' deck.id %}">Back to deck</a>
+  </div>
+</section>

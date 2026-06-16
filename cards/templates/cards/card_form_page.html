@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} | FlashCram{% endblock %}
+
+{% block content %}
+  <div class="flex min-h-screen flex-col gap-5 pb-8">
+    <a class="link" href="{% url 'cards:deck_detail' deck.id %}">Back to {{ deck.name }}</a>
+    {% include "cards/partials/card_form.html" %}
+  </div>
+{% endblock %}

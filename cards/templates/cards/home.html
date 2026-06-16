@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Decks | FlashCram{% endblock %}
+
+{% block content %}
+  <div class="flex min-h-screen flex-col gap-5 pb-8">
+    <header class="flex items-center justify-between gap-3">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
+        <h1 class="text-3xl font-bold">Decks</h1>
+      </div>
+      <a class="btn btn-primary" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
+    </header>
+
+    <div id="deck-form-slot"></div>
+
+    <section id="deck-list" class="grid gap-3">
+      {% for deck in decks %}
+        {% include "cards/partials/deck_card.html" %}
+      {% empty %}
+        <div id="empty-deck-list" class="rounded-lg border border-dashed border-base-300 bg-base-100 p-6 text-center">
+          <h2 class="text-xl font-semibold">No decks yet</h2>
+          <p class="mt-2 text-base-content/70">Create your first deck to start building a cram set.</p>
+        </div>
+      {% endfor %}
+    </section>
+  </div>
+{% endblock %}

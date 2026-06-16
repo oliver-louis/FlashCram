@@ -1,0 +1,48 @@
+<section id="review-panel" class="flex min-h-screen flex-col gap-4 pb-6">
+  <header class="flex items-center justify-between gap-3">
+    <div>
+      <p class="text-sm text-base-content/60">{{ deck.name }}</p>
+      <h1 class="text-xl font-bold">Review all</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      {% if can_undo %}
+        <form method="post" action="{% url 'cards:review_undo' %}">
+          {% csrf_token %}
+          <button class="btn btn-ghost btn-sm" type="submit" hx-post="{% url 'cards:review_undo' %}" hx-target="#review-panel" hx-swap="outerHTML">Undo</button>
+        </form>
+      {% endif %}
+      <span class="badge badge-neutral">{{ progress_current }} / {{ progress_total }}</span>
+    </div>
+  </header>
+
+  <div x-data="{ revealed: false }" class="flex flex-1 flex-col gap-4">
+    <button type="button" class="min-h-80 flex-1 rounded-lg bg-base-100 p-6 text-left shadow-sm" @click="revealed = true">
+      <p class="text-sm font-semibold uppercase tracking-wide text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
+      <div class="mt-4 whitespace-pre-wrap text-2xl font-semibold leading-relaxed" x-show="!revealed">{{ card.front }}</div>
+      <div class="mt-4 whitespace-pre-wrap text-2xl font-semibold leading-relaxed" x-cloak x-show="revealed">{{ card.back }}</div>
+    </button>
+
+    <div class="sticky bottom-0 grid gap-3 bg-base-200/95 pt-2" x-cloak x-show="revealed">
+      <div class="grid grid-cols-2 gap-3">
+        <form method="post" action="{% url 'cards:review_grade' 'wrong' %}">
+          {% csrf_token %}
+          <button class="btn btn-error btn-lg w-full" type="submit" hx-post="{% url 'cards:review_grade' 'wrong' %}" hx-target="#review-panel" hx-swap="outerHTML">Wrong</button>
+        </form>
+        <form method="post" action="{% url 'cards:review_grade' 'got_it' %}">
+          {% csrf_token %}
+          <button class="btn btn-success btn-lg w-full" type="submit" hx-post="{% url 'cards:review_grade' 'got_it' %}" hx-target="#review-panel" hx-swap="outerHTML">Got it</button>
+        </form>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <form method="post" action="{% url 'cards:review_grade' 'show_less' %}">
+          {% csrf_token %}
+          <button class="btn btn-info btn-lg w-full" type="submit" hx-post="{% url 'cards:review_grade' 'show_less' %}" hx-target="#review-panel" hx-swap="outerHTML">Show less</button>
+        </form>
+        <form method="post" action="{% url 'cards:review_grade' 'hide' %}">
+          {% csrf_token %}
+          <button class="btn btn-warning btn-lg w-full" type="submit" hx-post="{% url 'cards:review_grade' 'hide' %}" hx-target="#review-panel" hx-swap="outerHTML">Hide</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>

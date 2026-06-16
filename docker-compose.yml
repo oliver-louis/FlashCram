@@ -1,0 +1,27 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    environment:
+      DEBUG: "False"
+      DJANGO_SECRET_KEY: "change-me-for-your-homelab"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      DATABASE_URL: "sqlite:////data/flashcram.sqlite3"
+    volumes:
+      - flashcram-data:/data
+
+  # Future Postgres option only. Do not enable during MVP SQLite phases.
+  # postgres:
+  #   image: postgres:17-alpine
+  #   profiles: ["postgres"]
+  #   environment:
+  #     POSTGRES_DB: flashcram
+  #     POSTGRES_USER: flashcram
+  #     POSTGRES_PASSWORD: flashcram
+  #   volumes:
+  #     - flashcram-postgres:/var/lib/postgresql/data
+
+volumes:
+  flashcram-data:
+  # flashcram-postgres:
