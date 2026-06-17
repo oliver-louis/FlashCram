@@ -18,7 +18,7 @@
     <progress class="progress progress-primary mt-4 h-2" value="{{ progress_current }}" max="{{ progress_total }}"></progress>
   </header>
 
-  <div x-data="{ revealed: false, menuOpen: false }" class="flex flex-1 flex-col gap-4">
+  <div x-data="{ revealed: {{ initial_revealed|yesno:'true,false' }}, menuOpen: false }" class="flex flex-1 flex-col gap-4">
     <div role="button" tabindex="0" class="fc-review-card flex flex-1 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]" @click="revealed = !revealed" @keydown.enter.prevent="revealed = !revealed" @keydown.space.prevent="revealed = !revealed">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>

@@ -55,7 +55,14 @@ def deck_detail(request, deck_id):
     return render(
         request,
         "cards/deck_detail.html",
-        {"deck": deck, "cards": cards_for_deck(deck), "query": "", "selected_tag": "", "selected_status": ""},
+        {
+            "deck": deck,
+            "cards": cards_for_deck(deck),
+            "query": "",
+            "selected_tag": "",
+            "selected_status": "",
+            "selected_marked": "",
+        },
     )
 
 
@@ -64,7 +71,14 @@ def card_list(request, deck_id):
     query = request.GET.get("q", "")
     selected_tag = request.GET.get("tag", "")
     selected_status = request.GET.get("status", "")
-    cards = filter_cards_for_deck(deck, query=query, tag=selected_tag, status=selected_status)
+    selected_marked = request.GET.get("marked", "")
+    cards = filter_cards_for_deck(
+        deck,
+        query=query,
+        tag=selected_tag,
+        status=selected_status,
+        marked=selected_marked,
+    )
     return render(
         request,
         "cards/partials/card_list.html",
@@ -74,7 +88,13 @@ def card_list(request, deck_id):
             "query": query,
             "selected_tag": selected_tag,
             "selected_status": selected_status,
-            "is_filtered": bool(query.strip() or selected_tag.strip() or selected_status.strip()),
+            "selected_marked": selected_marked,
+            "is_filtered": bool(
+                query.strip()
+                or selected_tag.strip()
+                or selected_status.strip()
+                or selected_marked.strip()
+            ),
         },
     )
 
@@ -336,7 +356,7 @@ def review_mark(request):
         return htmx_redirect(reverse("cards:home"))
     card = current_review_card(session)
     mark_card(card)
-    return render(request, "cards/partials/review_card.html", review_context(session))
+    return render(request, "cards/partials/review_card.html", review_context(session, initial_revealed=True))
 
 
 def review_edit(request):
@@ -387,7 +407,7 @@ def review_undo(request):
     return render(request, "cards/partials/review_card.html", review_context(session))
 
 
-def review_context(session):
+def review_context(session, initial_revealed=False):
     deck = session_deck(session)
     card = current_review_card(session)
     progress_current, progress_total = review_progress(session)
@@ -401,6 +421,7 @@ def review_context(session):
         "progress_total": progress_total,
         "can_undo": bool(session.get("log")),
         "is_hidden_mode": session.get("mode") == REVIEW_HIDDEN_MODE,
+        "initial_revealed": initial_revealed,
     }
 
 

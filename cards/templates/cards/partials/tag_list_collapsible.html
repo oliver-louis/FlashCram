@@ -1,0 +1,19 @@
+{% with tags|length as tag_count %}
+  <div class="flex min-w-0 max-w-full flex-wrap gap-2 overflow-hidden" {% if tag_count > 8 %}x-data="{ expanded: false }"{% endif %}>
+    {% for tag in tags %}
+      {% if selectable %}
+        <label class="btn btn-sm btn-outline max-w-full rounded-2xl has-[:checked]:btn-primary" {% if tag_count > 8 and forloop.counter > 8 %}x-cloak x-show="expanded"{% endif %}>
+          <input class="hidden" type="checkbox" name="tags" value="{{ tag }}">
+          <span class="max-w-full truncate">{{ tag }}</span>
+        </label>
+      {% else %}
+        <span class="badge badge-outline max-w-full rounded-xl" {% if tag_count > 8 and forloop.counter > 8 %}x-cloak x-show="expanded"{% endif %}>
+          <span class="max-w-full truncate">{{ tag }}</span>
+        </span>
+      {% endif %}
+    {% endfor %}
+    {% if tag_count > 8 %}
+      <button class="btn btn-ghost btn-sm rounded-2xl" type="button" @click="expanded = !expanded" x-text="expanded ? 'Show fewer' : 'Show all {{ tag_count }} tags'"></button>
+    {% endif %}
+  </div>
+{% endwith %}

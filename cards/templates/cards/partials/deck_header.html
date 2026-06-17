@@ -1,4 +1,4 @@
-<section id="deck-header" class="fc-card rounded-3xl p-5 sm:p-6">
+<section id="deck-header" class="fc-card max-w-full overflow-hidden rounded-3xl p-5 sm:p-6">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
     <div class="min-w-0">
       <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Deck</p>
@@ -21,10 +21,8 @@
   </div>
 
   {% if deck.tags_used %}
-    <div class="mt-5 flex flex-wrap gap-2">
-      {% for tag in deck.tags_used %}
-        <span class="badge badge-outline rounded-xl">{{ tag }}</span>
-      {% endfor %}
+    <div class="mt-5 min-w-0 max-w-full">
+      {% include "cards/partials/tag_list_collapsible.html" with tags=deck.tags_used selectable=False %}
     </div>
   {% endif %}
 

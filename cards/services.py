@@ -218,11 +218,12 @@ def copy_cards_to_deck(cards, deck) -> int:
     return copied
 
 
-def filter_cards_for_deck(deck, query="", tag="", status="") -> list:
+def filter_cards_for_deck(deck, query="", tag="", status="", marked="") -> list:
     query = (query or "").strip().lower()
     normalized_tag = normalize_tags(tag)
     selected_tag = normalized_tag[0] if normalized_tag else ""
     selected_status = (status or "").strip()
+    selected_marked = (marked or "").strip()
     cards = list(cards_for_deck(deck))
 
     if query:
@@ -235,6 +236,10 @@ def filter_cards_for_deck(deck, query="", tag="", status="") -> list:
         cards = [card for card in cards if selected_tag in (card.tags or [])]
     if selected_status:
         cards = [card for card in cards if card.status == selected_status]
+    if selected_marked == "marked":
+        cards = [card for card in cards if card.is_marked]
+    elif selected_marked == "unmarked":
+        cards = [card for card in cards if not card.is_marked]
     return cards
 
 

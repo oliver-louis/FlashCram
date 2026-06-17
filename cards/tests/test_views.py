@@ -344,6 +344,7 @@ class ReviewAllViewTests(TestCase):
         self.assertTrue(card.is_marked)
         self.assertEqual(card.times_reviewed, 0)
         self.assertEqual(session["cursor"], 0)
+        self.assertContains(response, "revealed: true")
         self.assertContains(response, "Marked")
         self.assertContains(response, "first")
 
@@ -537,6 +538,43 @@ class PhaseTwoViewTests(TestCase):
         html = response.content.decode()
 
         self.assertLess(html.index(">Review<"), html.index(">Deck<"))
+
+    def test_deck_detail_collapses_large_tag_lists_and_review_tags(self):
+        deck = Deck.objects.create(name="Many tags")
+        tags = [f"tag{i}" for i in range(1, 10)]
+        Card.objects.create(deck=deck, front="front", back="back", tags=tags)
+
+        response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
+
+        self.assertContains(response, "Show all 9 tags", count=2)
+        self.assertContains(response, 'x-show="expanded"')
+        self.assertContains(response, "tag8")
+        self.assertContains(response, "tag9")
+
+    def test_deck_detail_short_tag_lists_do_not_render_collapse_controls(self):
+        deck = Deck.objects.create(name="Short tags")
+        Card.objects.create(deck=deck, front="front", back="back", tags=[f"tag{i}" for i in range(1, 9)])
+
+        response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
+
+        self.assertNotContains(response, "Show all 8 tags")
+        self.assertNotContains(response, 'x-show="expanded"')
+
+    def test_deck_detail_includes_mobile_overflow_guards(self):
+        deck = Deck.objects.create(name="Overflow")
+        Card.objects.create(
+            deck=deck,
+            front="A very long card front that should wrap instead of stretching the viewport",
+            back="back",
+            tags=["a-very-long-tag-name-that-should-not-force-horizontal-scroll"],
+        )
+
+        response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
+
+        self.assertContains(response, "overflow-x-hidden")
+        self.assertContains(response, "min-w-0 max-w-full overflow-hidden rounded-3xl")
+        self.assertContains(response, "line-clamp-2 break-words")
+        self.assertContains(response, "max-w-full truncate")
 
     def test_bulk_import_preview_and_confirm_existing_deck(self):
         deck = Deck.objects.create(name="Import target")
@@ -749,6 +787,13 @@ class PhaseThreePolishTests(TestCase):
             back="Subnet notation",
             tags=["network"],
         )
+        self.marked_match = Card.objects.create(
+            deck=self.deck,
+            front="Marked CIDR",
+            back="Marked subnet",
+            tags=["network"],
+            is_marked=True,
+        )
 
     def test_card_filter_matches_front_back_tag_and_combined(self):
         front_response = self.client.get(
@@ -783,6 +828,47 @@ class PhaseThreePolishTests(TestCase):
         self.assertContains(combined_response, "grep inverse")
         self.assertNotContains(combined_response, "CIDR")
 
+    def test_card_filter_can_show_marked_and_unmarked_cards(self):
+        marked_response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {"marked": "marked"},
+            **HTMX,
+        )
+        self.assertContains(marked_response, "Marked CIDR")
+        self.assertNotContains(marked_response, "Kernel modules")
+
+        unmarked_response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {"marked": "unmarked"},
+            **HTMX,
+        )
+        self.assertContains(unmarked_response, "Kernel modules")
+        self.assertNotContains(unmarked_response, "Marked CIDR")
+
+    def test_card_filter_combines_query_tag_status_and_marked(self):
+        Card.objects.create(
+            deck=self.deck,
+            front="Hidden marked network",
+            back="target",
+            tags=["network"],
+            status=Card.Status.HIDDEN,
+            is_marked=True,
+        )
+
+        response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {
+                "q": "hidden",
+                "tag": "network",
+                "status": Card.Status.HIDDEN,
+                "marked": "marked",
+            },
+            **HTMX,
+        )
+
+        self.assertContains(response, "Hidden marked network")
+        self.assertNotContains(response, "Marked CIDR")
+
     def test_card_filter_can_show_hidden_cards_only(self):
         Card.objects.create(deck=self.deck, front="Archived", back="Hidden back", status=Card.Status.HIDDEN)
 
@@ -799,7 +885,7 @@ class PhaseThreePolishTests(TestCase):
     def test_card_filter_returns_fragment_and_no_match_empty_state(self):
         response = self.client.get(
             reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
-            {"q": "notfound"},
+            {"q": "notfound", "marked": "marked"},
             **HTMX,
         )
 
