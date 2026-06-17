@@ -16,7 +16,9 @@
     <link rel="icon" href="{% static 'icons/favicon.png' %}" type="image/png">
     <style>
       [x-cloak] { display: none !important; }
-      html, body { margin: 0; min-height: 100%; background: #111116; color: #f5f7fb; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      html[data-theme="dark"] { --fc-page: #111116; --fc-text: #f5f7fb; }
+      html[data-theme="light"] { --fc-page: #f8fafc; --fc-text: #0f172a; }
+      html, body { margin: 0; min-height: 100%; background: var(--fc-page, #111116); color: var(--fc-text, #f5f7fb); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       a { color: inherit; }
     </style>
     <script defer src="{% static 'vendor/htmx.min.js' %}"></script>
@@ -27,17 +29,29 @@
     <script>
       window.flashcramRenderMath = function(root) {
         if (!window.renderMathInElement) return;
-        window.renderMathInElement(root || document.body, {
+        const scope = root || document;
+        const targets = new Set();
+        if (scope.matches && scope.matches('[data-render-math="true"]')) {
+          targets.add(scope);
+        }
+        if (scope.querySelectorAll) {
+          scope.querySelectorAll('[data-render-math="true"]').forEach(function(target) {
+            targets.add(target);
+          });
+        }
+        targets.forEach(function(target) {
+          window.renderMathInElement(target, {
           delimiters: [
             {left: "\\(", right: "\\)", display: false},
             {left: "\\[", right: "\\]", display: true},
             {left: "$$", right: "$$", display: true}
           ],
           throwOnError: false
+          });
         });
       };
       document.addEventListener("DOMContentLoaded", function() {
-        window.flashcramRenderMath(document.body);
+        window.flashcramRenderMath(document);
       });
       document.addEventListener("htmx:afterSwap", function(event) {
         window.flashcramRenderMath(event.target);

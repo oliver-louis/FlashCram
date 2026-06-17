@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 
 from .models import Card, Deck, Settings
@@ -72,6 +74,8 @@ class CardForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        preview_url = kwargs.pop("preview_url", "")
+        card_id = kwargs.pop("card_id", "")
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             self.fields["tags_text"].initial = ", ".join(self.instance.tags or [])
@@ -79,8 +83,21 @@ class CardForm(forms.ModelForm):
             self.fields["content_format"].initial = get_settings().default_content_format
         self.fields["content_format"].required = False
         self.fields["image_face"].required = False
-        self.fields["front"].widget.attrs["data-preview-url"] = ""
-        self.fields["back"].widget.attrs["data-preview-url"] = ""
+        if preview_url:
+            for face in ("front", "back"):
+                preview_values = {"face": face}
+                if card_id:
+                    preview_values["card_id"] = str(card_id)
+                self.fields[face].widget.attrs.update(
+                    {
+                        "hx-post": preview_url,
+                        "hx-trigger": "input changed delay:500ms",
+                        "hx-target": f"#{face}-preview",
+                        "hx-swap": "outerHTML",
+                        "hx-include": 'input[name="content_format"]:checked',
+                        "hx-vals": json.dumps(preview_values),
+                    }
+                )
 
     def clean_content_format(self):
         value = self.cleaned_data.get("content_format")

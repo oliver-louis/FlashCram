@@ -20,7 +20,7 @@
       const target = this.focusedFace === 'back' ? this.$refs.backInput : this.$refs.frontInput;
       const latex = this.equationLatex || this.$refs.mathField?.value || '';
       if (!latex.trim()) return;
-      const wrapped = this.equationMode === 'display' ? '\\\\[' + latex + '\\\\]' : '\\\\(' + latex + '\\\\)';
+      const wrapped = this.equationMode === 'display' ? '\\[' + latex + '\\]' : '\\(' + latex + '\\)';
       const start = target.selectionStart || 0;
       const end = target.selectionEnd || 0;
       target.value = target.value.slice(0, start) + wrapped + target.value.slice(end);
@@ -85,28 +85,14 @@
       <div class="rounded-2xl border border-base-content/10 bg-base-200/70 p-3">
         <div class="flex items-center justify-between gap-2">
           <p class="font-semibold">Front preview</p>
-          <button
-            class="btn btn-outline btn-sm rounded-2xl"
-            type="button"
-            hx-post="{% url 'cards:card_preview' deck.id %}"
-            hx-target="#front-preview"
-            hx-swap="outerHTML"
-            hx-vals='js:{content: document.getElementById("id_front").value, content_format: "markdown", face: "front"{% if card %}, card_id: "{{ card.id }}"{% endif %}}'
-          >Preview</button>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] fc-muted">Live</p>
         </div>
         <div id="front-preview" class="mt-3 rounded-2xl border border-base-content/10 bg-base-100/60 p-4 fc-muted">Preview front markdown here.</div>
       </div>
       <div class="rounded-2xl border border-base-content/10 bg-base-200/70 p-3">
         <div class="flex items-center justify-between gap-2">
           <p class="font-semibold">Back preview</p>
-          <button
-            class="btn btn-outline btn-sm rounded-2xl"
-            type="button"
-            hx-post="{% url 'cards:card_preview' deck.id %}"
-            hx-target="#back-preview"
-            hx-swap="outerHTML"
-            hx-vals='js:{content: document.getElementById("id_back").value, content_format: "markdown", face: "back"{% if card %}, card_id: "{{ card.id }}"{% endif %}}'
-          >Preview</button>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] fc-muted">Live</p>
         </div>
         <div id="back-preview" class="mt-3 rounded-2xl border border-base-content/10 bg-base-100/60 p-4 fc-muted">Preview back markdown here.</div>
       </div>

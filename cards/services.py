@@ -84,7 +84,7 @@ def process_image_bytes(data: bytes) -> tuple[bytes, str]:
     try:
         image = Image.open(BytesIO(data))
         image_format = (image.format or "").upper()
-    except UnidentifiedImageError as exc:
+    except (Image.DecompressionBombError, UnidentifiedImageError) as exc:
         raise ImageProcessingError("Unsupported image type. Use PNG, JPEG, WEBP, or GIF.") from exc
 
     mime = ALLOWED_IMAGE_MIMES.get(image_format)
@@ -98,8 +98,11 @@ def process_image_bytes(data: bytes) -> tuple[bytes, str]:
         return data, mime
 
     output = BytesIO()
-    image.load()
-    image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), Image.Resampling.LANCZOS)
+    try:
+        image.load()
+        image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), Image.Resampling.LANCZOS)
+    except Image.DecompressionBombError as exc:
+        raise ImageProcessingError("Unsupported image type. Use PNG, JPEG, WEBP, or GIF.") from exc
 
     save_format = image_format
     save_kwargs = {}

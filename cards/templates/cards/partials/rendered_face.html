@@ -1,4 +1,4 @@
-<div class="fc-rendered-content prose max-w-none" data-rendered-content>
+<div class="fc-rendered-content prose max-w-none" data-rendered-content{% if rendered_face.enable_math %} data-render-math="true"{% endif %}>
   {{ rendered_face.html }}
 </div>
 {% if rendered_face.image_data_uri %}

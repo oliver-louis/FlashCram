@@ -1,5 +1,6 @@
 import base64
 from io import BytesIO
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -8,7 +9,7 @@ from PIL import Image
 
 from cards.models import Card, Deck, Settings
 from cards.rendering import card_image_data_uri, plain_text_preview, render_card_face, render_content
-from cards.services import export_backup, import_backup
+from cards.services import ImageProcessingError, export_backup, import_backup, process_image_bytes
 
 
 HTMX = {"HTTP_HX_REQUEST": "true"}
@@ -33,6 +34,31 @@ class RenderingTests(TestCase):
         self.assertIn("highlight", rendered)
         self.assertIn("print", rendered)
 
+    def test_markdown_does_not_enable_inline_dollar_math(self):
+        rendered = str(render_content("$x$ $HOME $10.00", Card.ContentFormat.MARKDOWN))
+
+        self.assertIn("$x$", rendered)
+        self.assertIn("$HOME", rendered)
+        self.assertIn("$10.00", rendered)
+        self.assertNotIn("arithmatex", rendered)
+
+    def test_markdown_math_delimiters_are_explicit_only(self):
+        inline = str(render_content("\\(x_i\\)", Card.ContentFormat.MARKDOWN))
+        display_square = str(render_content("\\[x_i\\]", Card.ContentFormat.MARKDOWN))
+        display_dollar = str(render_content("$$x_i$$", Card.ContentFormat.MARKDOWN))
+        protected_markdown = str(render_content("\\(*bold*\\)", Card.ContentFormat.MARKDOWN))
+        old_helper_output = str(render_content("\\\\(*bold*\\\\)", Card.ContentFormat.MARKDOWN))
+
+        self.assertIn("arithmatex", inline)
+        self.assertIn("\\(x_i\\)", inline)
+        self.assertIn("arithmatex", display_square)
+        self.assertIn("\\[x_i\\]", display_square)
+        self.assertIn("arithmatex", display_dollar)
+        self.assertIn("\\[x_i\\]", display_dollar)
+        self.assertIn("\\(*bold*\\)", protected_markdown)
+        self.assertNotIn("<em>bold</em>", protected_markdown)
+        self.assertNotIn("arithmatex", old_helper_output)
+
     def test_plaintext_is_not_processed(self):
         rendered = str(render_content("$HOME *literal* _literal_\n<b>tag</b>", Card.ContentFormat.PLAINTEXT))
 
@@ -46,7 +72,21 @@ class RenderingTests(TestCase):
 
         self.assertIn("Bold", preview)
         self.assertIn("raw", preview)
+        self.assertIn("x", preview)
         self.assertNotIn("<span", preview)
+        self.assertNotIn("\\(", preview)
+
+    def test_plain_preview_unwraps_math_delimiters(self):
+        preview = plain_text_preview(
+            "Formula \\(x_i\\) and \\[y_2\\] and $$z_3$$",
+            Card.ContentFormat.MARKDOWN,
+        )
+
+        self.assertIn("x_i", preview)
+        self.assertIn("y_2", preview)
+        self.assertIn("z_3", preview)
+        for token in ["\\(", "\\[", "$$"]:
+            self.assertNotIn(token, preview)
 
 
 class PreviewViewTests(TestCase):
@@ -67,6 +107,62 @@ class PreviewViewTests(TestCase):
         self.assertContains(response, 'id="front-preview"')
         self.assertContains(response, "highlight")
         self.assertContains(response, "\\(x_i\\)")
+        self.assertContains(response, 'data-render-math="true"')
+
+    def test_preview_accepts_front_back_field_names_and_scopes_math(self):
+        markdown = self.client.post(
+            reverse("cards:card_preview", kwargs={"deck_id": self.deck.id}),
+            {
+                "front": "\\(x_i\\)",
+                "content_format": Card.ContentFormat.MARKDOWN,
+                "face": Card.ImageFace.FRONT,
+            },
+            **HTMX,
+        )
+        plaintext = self.client.post(
+            reverse("cards:card_preview", kwargs={"deck_id": self.deck.id}),
+            {
+                "back": "\\(x_i\\)",
+                "content_format": Card.ContentFormat.PLAINTEXT,
+                "face": Card.ImageFace.BACK,
+            },
+            **HTMX,
+        )
+
+        self.assertContains(markdown, 'data-render-math="true"')
+        self.assertContains(markdown, "\\(x_i\\)")
+        self.assertContains(plaintext, 'id="back-preview"')
+        self.assertContains(plaintext, "\\(x_i\\)")
+        self.assertNotContains(plaintext, 'data-render-math="true"')
+
+    def test_card_form_uses_debounced_preview_and_correct_equation_delimiters(self):
+        response = self.client.get(reverse("cards:card_create", kwargs={"deck_id": self.deck.id}))
+        html = response.content.decode()
+
+        self.assertIn("hx-trigger=\"input changed delay:500ms\"", html)
+        self.assertIn("hx-target=\"#front-preview\"", html)
+        self.assertIn("hx-target=\"#back-preview\"", html)
+        self.assertIn("? '\\\\[' + latex + '\\\\]'", html)
+        self.assertIn(": '\\\\(' + latex + '\\\\)'", html)
+        self.assertNotIn("'\\\\\\\\[' + latex", html)
+        self.assertNotIn("'\\\\\\\\(' + latex", html)
+        self.assertNotIn(">Preview</button>", html)
+
+    def test_base_template_scopes_katex_to_markdown_fragments(self):
+        response = self.client.get(reverse("cards:home"))
+        html = response.content.decode()
+
+        self.assertIn("querySelectorAll('[data-render-math=\"true\"]')", html)
+        self.assertIn("window.flashcramRenderMath(document)", html)
+        self.assertNotIn("flashcramRenderMath(document.body)", html)
+        self.assertNotIn("renderMathInElement(root || document.body", html)
+
+    def test_base_template_uses_theme_variables_for_page_shell(self):
+        response = self.client.get(reverse("cards:home"))
+        html = response.content.decode()
+
+        self.assertIn("background: var(--fc-page, #111116)", html)
+        self.assertNotIn("html, body { margin: 0; min-height: 100%; background: #111116", html)
 
 
 class ImageCardTests(TestCase):
@@ -133,6 +229,11 @@ class ImageCardTests(TestCase):
         self.assertIn("$HOME *literal*", str(render_card_face(card, Card.ImageFace.FRONT).html))
         self.assertTrue(card_image_data_uri(card, Card.ImageFace.BACK).startswith("data:image/png;base64,"))
         self.assertEqual(render_card_face(no_image, Card.ImageFace.BACK).image_data_uri, "")
+
+    def test_decompression_bomb_is_reported_as_image_processing_error(self):
+        with patch("cards.services.Image.open", side_effect=Image.DecompressionBombError("boom")):
+            with self.assertRaises(ImageProcessingError):
+                process_image_bytes(b"not-empty")
 
 
 class PhaseFourImportExportTests(TestCase):

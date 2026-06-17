@@ -137,8 +137,9 @@ def deck_delete(request, deck_id):
 
 def card_create(request, deck_id):
     deck = get_deck(deck_id)
+    preview_url = reverse("cards:card_preview", kwargs={"deck_id": deck.id})
     if request.method == "POST":
-        form = CardForm(request.POST, request.FILES)
+        form = CardForm(request.POST, request.FILES, preview_url=preview_url)
         if form.is_valid():
             card = form.save(commit=False)
             card.deck = deck
@@ -152,7 +153,7 @@ def card_create(request, deck_id):
                 )
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = CardForm()
+        form = CardForm(preview_url=preview_url)
 
     template = "cards/partials/card_form.html" if request.htmx else "cards/card_form_page.html"
     return render(
@@ -172,15 +173,22 @@ def card_create(request, deck_id):
 def card_edit(request, deck_id, card_id):
     deck = get_deck(deck_id)
     card = get_card_for_deck(deck, card_id)
+    preview_url = reverse("cards:card_preview", kwargs={"deck_id": deck.id})
     if request.method == "POST":
-        form = CardForm(request.POST, request.FILES, instance=card)
+        form = CardForm(
+            request.POST,
+            request.FILES,
+            instance=card,
+            preview_url=preview_url,
+            card_id=str(card.id),
+        )
         if form.is_valid():
             card = form.save()
             if request.htmx:
                 return render(request, "cards/partials/card_row.html", {"deck": deck, "card": card})
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = CardForm(instance=card)
+        form = CardForm(instance=card, preview_url=preview_url, card_id=str(card.id))
 
     template = "cards/partials/card_form.html" if request.htmx else "cards/card_form_page.html"
     return render(
@@ -203,9 +211,13 @@ def card_edit(request, deck_id, card_id):
 @require_POST
 def card_preview(request, deck_id):
     deck = get_deck(deck_id)
-    content = request.POST.get("content", "")
     content_format = request.POST.get("content_format", Card.ContentFormat.PLAINTEXT)
     face = request.POST.get("face", Card.ImageFace.FRONT)
+    if face not in {Card.ImageFace.FRONT, Card.ImageFace.BACK}:
+        face = Card.ImageFace.FRONT
+    content = request.POST.get("content")
+    if content is None:
+        content = request.POST.get(face, "")
     card = None
     card_id = request.POST.get("card_id")
     if card_id:
@@ -219,6 +231,7 @@ def card_preview(request, deck_id):
         html=render_content(content, content_format),
         image_data_uri=image_data_uri,
         image_alt=image_alt,
+        enable_math=content_format == Card.ContentFormat.MARKDOWN,
     )
     return render(
         request,

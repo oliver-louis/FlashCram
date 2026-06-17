@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import html
+import re
 from dataclasses import dataclass
 
 import bleach
@@ -19,6 +20,8 @@ MARKDOWN_EXTENSIONS = [
 MARKDOWN_EXTENSION_CONFIGS = {
     "pymdownx.arithmatex": {
         "generic": True,
+        "inline_syntax": ["round"],
+        "block_syntax": ["dollar", "square"],
         "tex_inline_wrap": ["\\(", "\\)"],
         "tex_block_wrap": ["\\[", "\\]"],
     },
@@ -27,6 +30,11 @@ MARKDOWN_EXTENSION_CONFIGS = {
         "pygments_lang_class": True,
     },
 }
+MATH_PREVIEW_PATTERNS = [
+    re.compile(r"\\\((.*?)\\\)", re.DOTALL),
+    re.compile(r"\\\[(.*?)\\\]", re.DOTALL),
+    re.compile(r"\$\$(.*?)\$\$", re.DOTALL),
+]
 ALLOWED_TAGS = [
     "a",
     "blockquote",
@@ -70,6 +78,7 @@ class RenderedFace:
     html: SafeString
     image_data_uri: str
     image_alt: str
+    enable_math: bool = False
 
 
 def render_content(text: str, content_format: str) -> SafeString:
@@ -108,7 +117,15 @@ def render_card_face(card, face: str) -> RenderedFace:
         html=render_content(text, card.content_format),
         image_data_uri=card_image_data_uri(card, face),
         image_alt=f"{card.get_image_face_display()} image",
+        enable_math=card.content_format == "markdown",
     )
+
+
+def strip_math_delimiters(text: str) -> str:
+    value = text or ""
+    for pattern in MATH_PREVIEW_PATTERNS:
+        value = pattern.sub(lambda match: match.group(1), value)
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def plain_text_preview(text: str, content_format: str) -> str:
@@ -120,4 +137,4 @@ def plain_text_preview(text: str, content_format: str) -> str:
         extension_configs=MARKDOWN_EXTENSION_CONFIGS,
         output_format="html",
     )
-    return striptags(rendered)
+    return strip_math_delimiters(striptags(rendered))
