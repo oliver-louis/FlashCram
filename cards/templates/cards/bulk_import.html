@@ -8,56 +8,132 @@
     <header class="fc-card rounded-3xl p-5 sm:p-6">
       <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">FlashCram</p>
       <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Bulk import</h1>
-      <p class="mt-2 max-w-xl fc-muted">Paste a cram sheet, preview detected cards, then add them to an existing or new deck.</p>
+      <p class="mt-2 max-w-2xl fc-muted">Add cards from raw notes or an LLM-generated authoring JSON file. Full backup JSON still belongs in Settings.</p>
     </header>
 
-    <form method="post" class="fc-card space-y-4 rounded-3xl p-5">
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
       {% csrf_token %}
       {% if form.non_field_errors %}
-        <div class="alert alert-error">{{ form.non_field_errors }}</div>
+        <div class="alert alert-error rounded-3xl">{{ form.non_field_errors }}</div>
       {% endif %}
-      <div class="grid gap-4 md:grid-cols-2">
-        <label class="form-control">
-          <span class="label-text">Existing deck</span>
-          {{ form.deck }}
-        </label>
-        <label class="form-control">
-          <span class="label-text">Or create new deck</span>
-          {{ form.new_deck_name }}
-        </label>
-      </div>
-      <label class="form-control">
-        <span class="label-text">Cards</span>
-        {{ form.text }}
-        {{ form.text.errors }}
-      </label>
-      <div class="grid gap-3 sm:flex">
-        <button class="btn btn-primary btn-lg fc-tap rounded-2xl" type="submit" name="intent" value="preview">Preview</button>
-        {% if result %}
-          <button class="btn btn-success btn-lg fc-tap rounded-2xl" type="submit" name="intent" value="confirm">Import {{ result.cards|length }} cards</button>
-        {% endif %}
-      </div>
+
+      <section class="fc-card rounded-3xl p-5">
+        <div class="flex flex-col gap-1">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Target</p>
+          <h2 class="text-2xl font-black">Choose where cards go</h2>
+          <p class="text-sm fc-muted">The selector wins. If JSON has a deck name and these are blank, FlashCram creates that deck.</p>
+        </div>
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <label class="form-control">
+            <span class="label-text">Existing deck</span>
+            {{ form.deck }}
+          </label>
+          <label class="form-control">
+            <span class="label-text">Or create new deck</span>
+            {{ form.new_deck_name }}
+          </label>
+        </div>
+      </section>
+
+      <section class="grid gap-6 lg:grid-cols-2">
+        <div class="fc-card flex flex-col gap-4 rounded-3xl p-5">
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Raw text</p>
+            <h2 class="mt-1 text-2xl font-black">Paste cards</h2>
+            <p class="mt-1 text-sm fc-muted">Best for quick notes, command lists, and hand-written cram sheets.</p>
+          </div>
+
+          <details class="collapse collapse-arrow rounded-3xl border border-base-content/10 bg-base-200/70">
+            <summary class="collapse-title font-bold">Accepted raw-text formats</summary>
+            <div class="collapse-content space-y-3 text-sm">
+              <div>
+                <p class="font-semibold">Single line</p>
+                <pre class="mt-1 overflow-x-auto rounded-2xl bg-base-300 p-3"><code>Front :: Back #tag #tag</code></pre>
+              </div>
+              <div>
+                <p class="font-semibold">Blank-line separated blocks</p>
+                <pre class="mt-1 overflow-x-auto rounded-2xl bg-base-300 p-3"><code>Q: What is grep?
+A: Search text
+Tags: shell, grep</code></pre>
+              </div>
+            </div>
+          </details>
+
+          <label class="form-control">
+            <span class="label-text">Raw cards</span>
+            {{ form.text }}
+            {{ form.text.errors }}
+          </label>
+          <div class="grid gap-3 sm:flex">
+            <button class="btn btn-primary btn-lg fc-tap rounded-2xl" type="submit" name="intent" value="raw_preview">Preview raw text</button>
+            {% if raw_result and raw_result.cards %}
+              <button class="btn btn-success btn-lg fc-tap rounded-2xl" type="submit" name="intent" value="raw_confirm">Import {{ raw_result.cards|length }} cards</button>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="fc-card flex flex-col gap-4 rounded-3xl p-5">
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-secondary">Authoring JSON</p>
+            <h2 class="mt-1 text-2xl font-black">Upload LLM cards</h2>
+            <p class="mt-1 text-sm fc-muted">For generated card sets. This is additive and separate from full backup import.</p>
+          </div>
+
+          <details class="collapse collapse-arrow rounded-3xl border border-base-content/10 bg-base-200/70">
+            <summary class="collapse-title font-bold">Accepted authoring JSON format</summary>
+            <div class="collapse-content space-y-3 text-sm">
+              <pre class="overflow-x-auto rounded-2xl bg-base-300 p-3"><code>{
+  "schema": "flashcram.cards.v1",
+  "deck": "Deck name",
+  "cards": [
+    {
+      "front": "Question",
+      "back": "Answer",
+      "tags": ["tag1", "tag2"],
+      "format": "plaintext"
+    }
+  ]
+}</code></pre>
+              <p class="fc-muted">Use <code>format</code> as <code>plaintext</code> or <code>markdown</code>. Backup JSON files should be imported from Settings.</p>
+            </div>
+          </details>
+
+          <label class="form-control">
+            <span class="label-text">JSON file</span>
+            {{ form.authoring_json_file }}
+            {{ form.authoring_json_file.errors }}
+          </label>
+          <label class="form-control">
+            <span class="label-text">Or paste JSON</span>
+            {{ form.authoring_json_text }}
+            {{ form.authoring_json_text.errors }}
+          </label>
+          <div class="grid gap-3 sm:flex">
+            <button class="btn btn-secondary btn-lg fc-tap rounded-2xl" type="submit" name="intent" value="json_preview">Preview JSON</button>
+            {% if json_result and json_result.cards %}
+              <button class="btn btn-success btn-lg fc-tap rounded-2xl" type="submit" name="intent" value="json_confirm">Import {{ json_result.cards|length }} cards</button>
+            {% endif %}
+          </div>
+        </div>
+      </section>
     </form>
 
-    {% if result %}
+    {% if raw_result %}
       <section class="fc-card rounded-3xl p-5">
-        <h2 class="text-2xl font-black">Preview</h2>
-        <p class="mt-1 fc-muted">{{ result.cards|length }} cards detected, {{ result.skipped_count }} lines skipped. Format: {{ result.detected_format }}</p>
-        <div class="mt-4 grid gap-3">
-          {% for card in result.cards %}
-            <article class="rounded-2xl bg-base-200/80 p-4">
-              <p class="font-bold">{{ card.front }}</p>
-              <p class="mt-1 text-sm fc-muted">{{ card.back }}</p>
-              {% if card.tags %}
-                <div class="mt-2 flex flex-wrap gap-2">
-                  {% for tag in card.tags %}
-                    <span class="badge badge-outline badge-sm rounded-xl">{{ tag }}</span>
-                  {% endfor %}
-                </div>
-              {% endif %}
-            </article>
-          {% endfor %}
-        </div>
+        <h2 class="text-2xl font-black">Raw text preview</h2>
+        <p class="mt-1 fc-muted">{{ raw_result.cards|length }} cards detected, {{ raw_result.skipped_count }} lines skipped. Format: {{ raw_result.detected_format }}</p>
+        {% include "cards/partials/import_preview_cards.html" with cards=raw_result.cards %}
+      </section>
+    {% endif %}
+
+    {% if json_result %}
+      <section class="fc-card rounded-3xl p-5">
+        <h2 class="text-2xl font-black">Authoring JSON preview</h2>
+        <p class="mt-1 fc-muted">
+          {{ json_result.cards|length }} cards detected, {{ json_result.skipped_count }} cards skipped.
+          Schema: {{ json_result.schema }}{% if json_result.deck_name %}. File deck: {{ json_result.deck_name }}{% endif %}
+        </p>
+        {% include "cards/partials/import_preview_cards.html" with cards=json_result.cards %}
       </section>
     {% endif %}
   </div>

@@ -1,4 +1,6 @@
+import json
 from django.contrib.staticfiles import finders
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from pathlib import Path
@@ -300,6 +302,109 @@ class PhaseTwoViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         deck = Deck.objects.get(name="New import")
         self.assertEqual(deck.card_count, 1)
+
+    def test_bulk_import_page_renders_separate_raw_and_json_panels(self):
+        response = self.client.get(reverse("cards:bulk_import"))
+
+        self.assertContains(response, "Raw text")
+        self.assertContains(response, "Authoring JSON")
+        self.assertContains(response, "Accepted raw-text formats")
+        self.assertContains(response, "Accepted authoring JSON format")
+        self.assertContains(response, "flashcram.cards.v1")
+        self.assertContains(response, "Backup JSON files should be imported from Settings")
+
+    def test_authoring_json_file_preview_and_confirm_existing_deck(self):
+        deck = Deck.objects.create(name="JSON target")
+        payload = json.dumps(
+            {
+                "schema": "flashcram.cards.v1",
+                "deck": "Ignored file deck",
+                "cards": [
+                    {"front": "F1", "back": "B1", "tags": ["Tag"], "format": "plaintext"},
+                    {"front": "F2", "back": "**B2**", "tags": "md, tag", "format": "markdown"},
+                ],
+            }
+        )
+
+        preview = self.client.post(
+            reverse("cards:bulk_import"),
+            {
+                "deck": str(deck.id),
+                "new_deck_name": "",
+                "intent": "json_preview",
+                "authoring_json_file": SimpleUploadedFile(
+                    "cards.json",
+                    payload.encode(),
+                    content_type="application/json",
+                ),
+            },
+        )
+        self.assertContains(preview, "Authoring JSON preview")
+        self.assertContains(preview, "2 cards detected")
+        self.assertContains(preview, "File deck: Ignored file deck")
+        self.assertEqual(Card.objects.count(), 0)
+
+        confirm = self.client.post(
+            reverse("cards:bulk_import"),
+            {
+                "deck": str(deck.id),
+                "new_deck_name": "",
+                "intent": "json_confirm",
+                "authoring_json_file": SimpleUploadedFile(
+                    "cards.json",
+                    payload.encode(),
+                    content_type="application/json",
+                ),
+            },
+        )
+        self.assertEqual(confirm.status_code, 302)
+        self.assertEqual(Deck.objects.count(), 1)
+        self.assertEqual(Card.objects.count(), 2)
+        self.assertEqual(Card.objects.get(front="F1").tags, ["tag"])
+        self.assertEqual(Card.objects.get(front="F2").content_format, Card.ContentFormat.MARKDOWN)
+
+    def test_authoring_json_creates_deck_from_file_name_when_no_target(self):
+        payload = json.dumps(
+            {
+                "schema": "flashcram.cards.v1",
+                "deck": "File Deck",
+                "cards": [{"front": "Front", "back": "Back"}],
+            }
+        )
+
+        response = self.client.post(
+            reverse("cards:bulk_import"),
+            {
+                "deck": "",
+                "new_deck_name": "",
+                "intent": "json_confirm",
+                "authoring_json_text": payload,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        deck = Deck.objects.get(name="File Deck")
+        self.assertEqual(deck.card_count, 1)
+
+    def test_authoring_json_reimport_adds_duplicate_cards(self):
+        deck = Deck.objects.create(name="Duplicate target")
+        payload = json.dumps(
+            {
+                "schema": "flashcram.cards.v1",
+                "cards": [{"front": "Same", "back": "Same back"}],
+            }
+        )
+        post = {
+            "deck": str(deck.id),
+            "new_deck_name": "",
+            "intent": "json_confirm",
+            "authoring_json_text": payload,
+        }
+
+        self.client.post(reverse("cards:bulk_import"), post)
+        self.client.post(reverse("cards:bulk_import"), post)
+
+        self.assertEqual(Card.objects.filter(deck=deck, front="Same").count(), 2)
 
     def test_settings_persist_and_render_theme(self):
         response = self.client.post(

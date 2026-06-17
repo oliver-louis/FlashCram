@@ -23,6 +23,7 @@ from .services import (
     get_deck,
     get_settings,
     import_backup,
+    parse_authoring_json_cards,
     parse_bulk_cards,
     review_is_complete,
     review_progress,
@@ -327,29 +328,90 @@ def review_context(session):
 
 
 def bulk_import(request):
-    result = None
+    raw_result = None
+    json_result = None
     created_count = None
-    form = BulkImportForm(request.POST or None)
+    post_data = request.POST.copy() if request.method == "POST" else None
+    if post_data is not None and request.FILES.get("authoring_json_file") and not post_data.get("authoring_json_text"):
+        try:
+            post_data["authoring_json_text"] = request.FILES["authoring_json_file"].read().decode("utf-8-sig")
+        except UnicodeDecodeError:
+            post_data["authoring_json_text"] = ""
+    form = BulkImportForm(post_data or None, request.FILES or None)
 
     if request.method == "POST" and form.is_valid():
-        result = parse_bulk_cards(form.cleaned_data["text"])
-        if request.POST.get("intent") == "confirm":
-            deck = form.cleaned_data["deck"]
-            if deck is None:
-                deck = Deck.objects.create(name=form.cleaned_data["new_deck_name"])
-            create_cards_from_parsed(deck, result.cards)
-            created_count = len(result.cards)
-            return redirect("cards:deck_detail", deck_id=deck.id)
+        intent = request.POST.get("intent", "raw_preview")
+        if intent == "preview":
+            intent = "raw_preview"
+        elif intent == "confirm":
+            intent = "raw_confirm"
+        if intent.startswith("json_"):
+            json_result = handle_authoring_json_import(request, form, intent)
+            if isinstance(json_result, HttpResponse):
+                return json_result
+        else:
+            raw_result = handle_raw_text_import(request, form, intent)
+            if isinstance(raw_result, HttpResponse):
+                return raw_result
 
     return render(
         request,
         "cards/bulk_import.html",
         {
             "form": form,
-            "result": result,
+            "raw_result": raw_result,
+            "json_result": json_result,
             "created_count": created_count,
         },
     )
+
+
+def import_target_deck(form, fallback_name=""):
+    deck = form.cleaned_data.get("deck")
+    if deck is not None:
+        return deck
+    new_deck_name = (form.cleaned_data.get("new_deck_name") or "").strip()
+    if new_deck_name:
+        return Deck.objects.create(name=new_deck_name)
+    if fallback_name:
+        return Deck.objects.create(name=fallback_name)
+    return None
+
+
+def handle_raw_text_import(request, form, intent):
+    if not form.cleaned_data.get("deck") and not (form.cleaned_data.get("new_deck_name") or "").strip():
+        form.add_error(None, "Choose a deck or enter a new deck name for raw text import.")
+        return None
+    text = form.cleaned_data.get("text", "")
+    if not text.strip():
+        form.add_error("text", "Paste raw card text before previewing.")
+        return None
+    result = parse_bulk_cards(text)
+    if intent == "raw_confirm":
+        deck = import_target_deck(form)
+        create_cards_from_parsed(deck, result.cards)
+        return redirect("cards:deck_detail", deck_id=deck.id)
+    return result
+
+
+def handle_authoring_json_import(request, form, intent):
+    payload = form.cleaned_data.get("authoring_json_text", "")
+    if not payload.strip():
+        form.add_error("authoring_json_text", "Upload a JSON file or paste authoring JSON before previewing.")
+        return None
+    try:
+        result = parse_authoring_json_cards(payload)
+    except ValueError as exc:
+        form.add_error("authoring_json_text", str(exc))
+        return None
+    if not form.cleaned_data.get("deck") and not (form.cleaned_data.get("new_deck_name") or "").strip() and not result.deck_name:
+        form.add_error(None, "Choose a deck, enter a new deck name, or include a deck name in the JSON.")
+        return result
+    if intent == "json_confirm":
+        deck = import_target_deck(form, fallback_name=result.deck_name)
+        create_cards_from_parsed(deck, result.cards)
+        return redirect("cards:deck_detail", deck_id=deck.id)
+    return result
 
 
 def settings_view(request):

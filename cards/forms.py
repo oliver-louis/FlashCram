@@ -178,18 +178,28 @@ class BulkImportForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "input input-bordered h-14 w-full rounded-2xl"}),
     )
     text = forms.CharField(
+        required=False,
         widget=forms.Textarea(attrs={"class": "textarea textarea-bordered min-h-72 w-full rounded-2xl", "rows": 14})
+    )
+    authoring_json_file = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": "application/json,.json",
+                "class": "file-input file-input-bordered h-14 w-full rounded-2xl",
+            }
+        ),
+    )
+    authoring_json_text = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={"class": "textarea textarea-bordered min-h-72 w-full rounded-2xl font-mono text-sm", "rows": 14}
+        ),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["deck"].queryset = Deck.objects.all().order_by("created_at", "name")
-
-    def clean(self):
-        cleaned = super().clean()
-        if not cleaned.get("deck") and not cleaned.get("new_deck_name"):
-            raise forms.ValidationError("Choose a deck or enter a new deck name.")
-        return cleaned
 
 
 class JsonImportForm(forms.Form):

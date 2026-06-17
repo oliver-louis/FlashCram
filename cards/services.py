@@ -445,6 +445,7 @@ class ParsedCard:
     front: str
     back: str
     tags: list[str]
+    content_format: str = ""
 
 
 @dataclass(frozen=True)
@@ -452,6 +453,11 @@ class BulkParseResult:
     cards: list[ParsedCard]
     skipped_count: int
     detected_format: str
+    deck_name: str = ""
+    schema: str = ""
+
+
+AUTHORING_JSON_SCHEMA = "flashcram.cards.v1"
 
 
 def parse_bulk_cards(text: str) -> BulkParseResult:
@@ -515,18 +521,81 @@ def parse_multiline_cards(text: str) -> BulkParseResult:
     return BulkParseResult(cards=cards, skipped_count=skipped, detected_format="multi-line")
 
 
+def parse_authoring_json_cards(payload) -> BulkParseResult:
+    from .models import Card
+
+    if isinstance(payload, bytes):
+        payload = payload.decode("utf-8-sig")
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Authoring JSON is not valid JSON.") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Authoring JSON must be an object.")
+    if payload.get("version") == 1 and "decks" in payload:
+        raise ValueError("This looks like a full backup JSON file. Import backups from Settings instead.")
+    if payload.get("schema") != AUTHORING_JSON_SCHEMA:
+        raise ValueError(f'Authoring JSON must use schema "{AUTHORING_JSON_SCHEMA}".')
+    raw_cards = payload.get("cards")
+    if not isinstance(raw_cards, list):
+        raise ValueError('Authoring JSON must include a "cards" array.')
+
+    settings = get_settings()
+    default_format = settings.default_content_format
+    cards = []
+    skipped = 0
+    for raw_card in raw_cards:
+        if not isinstance(raw_card, dict):
+            skipped += 1
+            continue
+        front = str(raw_card.get("front") or "").strip()
+        back = str(raw_card.get("back") or "").strip()
+        content_format = (raw_card.get("format") or raw_card.get("contentFormat") or default_format)
+        tags = raw_card.get("tags", [])
+        if tags is None:
+            tags = []
+        if content_format not in {Card.ContentFormat.PLAINTEXT, Card.ContentFormat.MARKDOWN}:
+            skipped += 1
+            continue
+        if not isinstance(tags, (list, str)):
+            skipped += 1
+            continue
+        if not front or not back:
+            skipped += 1
+            continue
+        cards.append(
+            ParsedCard(
+                front=front,
+                back=back,
+                tags=normalize_tags(tags),
+                content_format=content_format,
+            )
+        )
+
+    return BulkParseResult(
+        cards=cards,
+        skipped_count=skipped,
+        detected_format="authoring-json",
+        deck_name=str(payload.get("deck", "")).strip(),
+        schema=AUTHORING_JSON_SCHEMA,
+    )
+
+
 def create_cards_from_parsed(deck, parsed_cards: list[ParsedCard]) -> list:
     from .models import Card
 
     created = []
     settings = get_settings()
+    valid_formats = {Card.ContentFormat.PLAINTEXT, Card.ContentFormat.MARKDOWN}
     for parsed in parsed_cards:
+        content_format = parsed.content_format if parsed.content_format in valid_formats else settings.default_content_format
         created.append(
             Card.objects.create(
                 deck=deck,
                 front=parsed.front,
                 back=parsed.back,
-                content_format=settings.default_content_format,
+                content_format=content_format,
                 tags=parsed.tags,
             )
         )

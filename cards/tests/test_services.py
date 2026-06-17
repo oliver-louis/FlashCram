@@ -3,11 +3,13 @@ import random
 
 from django.test import TestCase
 
-from cards.models import Card, Deck
+from cards.models import Card, Deck, Settings
 from cards.services import (
     cards_for_review_mode,
+    create_cards_from_parsed,
     export_backup,
     import_backup,
+    parse_authoring_json_cards,
     parse_bulk_cards,
     weighted_shuffle,
 )
@@ -97,6 +99,77 @@ class BulkParserTests(TestCase):
         self.assertEqual(len(result.cards), 1)
         self.assertEqual(result.cards[0].tags, ["shell", "grep"])
         self.assertEqual(result.skipped_count, 2)
+
+    def test_authoring_json_parser_accepts_llm_card_schema(self):
+        result = parse_authoring_json_cards(
+            json.dumps(
+                {
+                    "schema": "flashcram.cards.v1",
+                    "deck": "Exam deck",
+                    "cards": [
+                        {
+                            "front": "Question",
+                            "back": "Answer",
+                            "tags": [" Shell ", "shell", "Exam"],
+                            "format": "plaintext",
+                        },
+                        {
+                            "front": "Markdown?",
+                            "back": "**Yes**",
+                            "tags": "md, exam",
+                            "contentFormat": "markdown",
+                        },
+                    ],
+                }
+            )
+        )
+
+        self.assertEqual(result.detected_format, "authoring-json")
+        self.assertEqual(result.schema, "flashcram.cards.v1")
+        self.assertEqual(result.deck_name, "Exam deck")
+        self.assertEqual(result.skipped_count, 0)
+        self.assertEqual(len(result.cards), 2)
+        self.assertEqual(result.cards[0].tags, ["shell", "exam"])
+        self.assertEqual(result.cards[1].tags, ["md", "exam"])
+        self.assertEqual(result.cards[1].content_format, Card.ContentFormat.MARKDOWN)
+
+    def test_authoring_json_parser_defaults_format_and_skips_malformed_cards(self):
+        settings = Settings.objects.get_or_create(pk=Settings.SINGLETON_PK)[0]
+        settings.default_content_format = Settings.DefaultContentFormat.MARKDOWN
+        settings.save()
+
+        result = parse_authoring_json_cards(
+            {
+                "schema": "flashcram.cards.v1",
+                "cards": [
+                    {"front": "Uses default", "back": "Back", "tags": None},
+                    {"front": "", "back": "Missing front"},
+                    {"front": "Bad format", "back": "Back", "format": "html"},
+                    {"front": "Bad tags", "back": "Back", "tags": {"no": "thanks"}},
+                ],
+            }
+        )
+
+        self.assertEqual(len(result.cards), 1)
+        self.assertEqual(result.skipped_count, 3)
+        self.assertEqual(result.cards[0].content_format, Card.ContentFormat.MARKDOWN)
+
+    def test_authoring_json_rejects_backup_json(self):
+        with self.assertRaisesMessage(ValueError, "full backup JSON"):
+            parse_authoring_json_cards({"version": 1, "decks": []})
+
+    def test_create_cards_from_parsed_uses_authoring_content_format(self):
+        deck = Deck.objects.create(name="Import deck")
+        result = parse_authoring_json_cards(
+            {
+                "schema": "flashcram.cards.v1",
+                "cards": [{"front": "Front", "back": "**Back**", "format": "markdown"}],
+            }
+        )
+
+        create_cards_from_parsed(deck, result.cards)
+
+        self.assertEqual(Card.objects.get().content_format, Card.ContentFormat.MARKDOWN)
 
 
 class JsonBackupTests(TestCase):
