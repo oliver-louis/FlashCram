@@ -19,12 +19,17 @@
       {% endfor %}
     </div>
   {% endif %}
-  <div class="mt-4 flex gap-2" x-data="{ confirming: false }">
+  <div class="mt-4 flex flex-wrap gap-2" x-data="{ confirming: false }">
     <a class="btn btn-sm btn-outline rounded-2xl" href="{% url 'cards:card_edit' deck.id card.id %}" hx-get="{% url 'cards:card_edit' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Edit</a>
     {% if card.is_marked %}
       <form method="post" action="{% url 'cards:card_unmark' deck.id card.id %}">
         {% csrf_token %}
         <button class="btn btn-sm btn-secondary rounded-2xl" type="submit" hx-post="{% url 'cards:card_unmark' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Unmark</button>
+      </form>
+    {% else %}
+      <form method="post" action="{% url 'cards:card_mark' deck.id card.id %}">
+        {% csrf_token %}
+        <button class="btn btn-sm btn-secondary rounded-2xl" type="submit" hx-post="{% url 'cards:card_mark' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Mark</button>
       </form>
     {% endif %}
     <button class="btn btn-sm btn-error rounded-2xl" type="button" @click="confirming = true">Delete</button>

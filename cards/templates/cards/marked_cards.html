@@ -4,13 +4,43 @@
 {% block title %}Marked cards | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex flex-col gap-6">
+  <div class="flex flex-col gap-6" x-data="{ selected: [] }">
     <a class="btn btn-ghost w-fit rounded-2xl px-2" href="{% url 'cards:home' %}">‹ Back to decks</a>
     <header class="fc-card rounded-3xl p-5 sm:p-6">
       <p class="text-sm font-semibold uppercase tracking-[0.18em] text-secondary">Marked</p>
       <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Marked cards</h1>
       <p class="mt-2 max-w-2xl fc-muted">Cards you flagged during review for later editing, cleanup, or extra attention.</p>
     </header>
+
+    {% if groups %}
+      <form id="marked-bulk-form" method="post" action="{% url 'cards:marked_bulk_action' %}" class="fc-card rounded-3xl p-4 sm:p-5">
+        {% csrf_token %}
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-xl font-black">Bulk actions</h2>
+            <p class="text-sm fc-muted"><span x-text="selected.length"></span> selected</p>
+          </div>
+          <button class="btn btn-ghost btn-sm w-fit rounded-2xl" type="button" @click="selected = []">Clear selection</button>
+        </div>
+        <div class="mt-4 grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto]">
+          <label class="input input-bordered flex h-14 items-center gap-2 rounded-2xl">
+            <span class="text-base-content/50">Tags</span>
+            <input class="grow" type="text" name="tags_text" placeholder="important, revise">
+          </label>
+          <button class="btn btn-secondary fc-tap rounded-2xl" type="submit" name="bulk_action" value="tag" :disabled="selected.length === 0">Add tags</button>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <select class="select select-bordered h-14 w-full rounded-2xl" name="deck">
+              <option value="">Choose deck</option>
+              {% for deck in decks %}
+                <option value="{{ deck.id }}">{{ deck.name }}</option>
+              {% endfor %}
+            </select>
+            <input class="input input-bordered h-14 w-full rounded-2xl" type="text" name="new_deck_name" placeholder="or new deck">
+          </div>
+          <button class="btn btn-primary fc-tap rounded-2xl" type="submit" name="bulk_action" value="deck" :disabled="selected.length === 0">Copy to deck</button>
+        </div>
+      </form>
+    {% endif %}
 
     {% for group in groups %}
       <section class="space-y-3">
@@ -25,14 +55,17 @@
           {% for card in group.cards %}
             <article id="marked-card-{{ card.id }}" class="fc-card rounded-3xl p-4">
               <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
+                <label class="flex min-w-0 flex-1 items-start gap-3">
+                  <input class="checkbox checkbox-primary mt-1" type="checkbox" name="cards" value="{{ card.id }}" form="marked-bulk-form" x-model="selected">
+                  <span class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="badge badge-secondary rounded-xl">Marked</span>
                     <span class="badge rounded-xl {% if card.status == 'hidden' %}badge-warning{% elif card.status == 'less' %}badge-info{% else %}badge-neutral{% endif %}">{{ card.get_status_display }}</span>
                   </div>
                   <p class="mt-3 line-clamp-2 text-lg font-bold leading-snug">{{ card.front|card_plain_preview:card.content_format }}</p>
                   <p class="mt-2 line-clamp-2 text-sm fc-muted">{{ card.back|card_plain_preview:card.content_format }}</p>
-                </div>
+                  </span>
+                </label>
               </div>
               {% if card.tags %}
                 <div class="mt-3 flex flex-wrap gap-2">

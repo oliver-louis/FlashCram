@@ -58,18 +58,18 @@
           </form>
         </div>
       {% else %}
-        <div class="grid grid-cols-[1fr_auto_1fr] gap-3">
+        <div class="grid grid-cols-[1fr_1fr_auto] gap-3">
           <form method="post" action="{% url 'cards:review_grade' 'wrong' %}">
             {% csrf_token %}
             <button class="btn btn-error btn-lg fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'wrong' %}" hx-target="#review-panel" hx-swap="outerHTML">Incorrect</button>
           </form>
-          <button class="btn btn-outline btn-lg fc-tap rounded-2xl px-4" type="button" @click="menuOpen = !menuOpen" :aria-expanded="menuOpen.toString()" aria-label="More review actions">
-            <span class="text-xl leading-none" :class="menuOpen ? 'rotate-180' : ''">⌃</span>
-          </button>
           <form method="post" action="{% url 'cards:review_grade' 'got_it' %}">
             {% csrf_token %}
             <button class="btn btn-success btn-lg fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'got_it' %}" hx-target="#review-panel" hx-swap="outerHTML">Correct</button>
           </form>
+          <button class="btn btn-outline btn-lg btn-square fc-tap rounded-2xl" type="button" @click="menuOpen = !menuOpen" :aria-expanded="menuOpen.toString()" aria-label="More review actions">
+            <span class="text-xl leading-none transition-transform" :class="menuOpen ? 'rotate-180' : ''">⌃</span>
+          </button>
         </div>
         <div class="grid gap-3 rounded-3xl border border-base-content/10 bg-base-200/70 p-3 sm:grid-cols-4" x-cloak x-show="menuOpen" x-transition>
           <form method="post" action="{% url 'cards:review_grade' 'show_less' %}">

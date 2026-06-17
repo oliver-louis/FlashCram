@@ -61,7 +61,7 @@
         </div>
         <a class="btn btn-primary fc-tap rounded-2xl" href="{% url 'cards:card_create' deck.id %}" hx-get="{% url 'cards:card_create' deck.id %}" hx-target="#card-form-slot" hx-swap="innerHTML">Add card</a>
       </div>
-      <form id="card-filter-form" class="fc-glass grid gap-3 rounded-3xl p-3 sm:grid-cols-[1fr_auto]" hx-get="{% url 'cards:card_list' deck.id %}" hx-target="#card-list" hx-swap="outerHTML" hx-trigger="keyup changed delay:250ms from:input[name='q'], search from:input[name='q'], change from:select[name='tag']">
+      <form id="card-filter-form" class="fc-glass grid gap-3 rounded-3xl p-3 sm:grid-cols-[1fr_auto_auto]" hx-get="{% url 'cards:card_list' deck.id %}" hx-target="#card-list" hx-swap="outerHTML" hx-trigger="keyup changed delay:250ms from:input[name='q'], search from:input[name='q'], change from:select[name='tag'], change from:select[name='status']">
         <label class="input input-bordered flex h-14 items-center gap-2 rounded-2xl">
           <span class="text-base-content/50">Search</span>
           <input class="grow" type="search" name="q" value="{{ query }}" placeholder="front or back">
@@ -71,6 +71,12 @@
           {% for tag in deck.tags_used %}
             <option value="{{ tag }}" {% if selected_tag == tag %}selected{% endif %}>{{ tag }}</option>
           {% endfor %}
+        </select>
+        <select class="select select-bordered h-14 w-full rounded-2xl sm:w-44" name="status" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="normal" {% if selected_status == "normal" %}selected{% endif %}>Normal</option>
+          <option value="less" {% if selected_status == "less" %}selected{% endif %}>Show less</option>
+          <option value="hidden" {% if selected_status == "hidden" %}selected{% endif %}>Hidden</option>
         </select>
       </form>
       {% include "cards/partials/card_list.html" %}

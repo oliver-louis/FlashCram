@@ -37,8 +37,14 @@ urlpatterns = [
     path("decks/<uuid:deck_id>/export/", views.export_deck, name="export_deck"),
     path("bulk-import/", views.bulk_import, name="bulk_import"),
     path("marked/", views.marked_cards, name="marked_cards"),
+    path("marked/bulk/", views.marked_bulk_action, name="marked_bulk_action"),
     path("settings/", views.settings_view, name="settings"),
     path("export/", views.export_all, name="export_all"),
+    path(
+        "cards/<uuid:deck_id>/<uuid:card_id>/mark/",
+        views.card_mark,
+        name="card_mark",
+    ),
     path(
         "cards/<uuid:deck_id>/<uuid:card_id>/unmark/",
         views.card_unmark,

@@ -179,10 +179,50 @@ def unmark_card(card) -> None:
         card.save(update_fields=["is_marked", "updated_at"])
 
 
-def filter_cards_for_deck(deck, query="", tag="") -> list:
+def add_tags_to_cards(cards, tags: Iterable[str] | str) -> int:
+    new_tags = normalize_tags(tags)
+    if not new_tags:
+        return 0
+
+    updated = 0
+    for card in cards:
+        merged_tags = normalize_tags([*(card.tags or []), *new_tags])
+        if merged_tags != (card.tags or []):
+            card.tags = merged_tags
+            card.save(update_fields=["tags", "updated_at"])
+            updated += 1
+    return updated
+
+
+def copy_cards_to_deck(cards, deck) -> int:
+    from .models import Card
+
+    copied = 0
+    for card in cards:
+        Card.objects.create(
+            deck=deck,
+            front=card.front,
+            back=card.back,
+            content_format=card.content_format,
+            tags=list(card.tags or []),
+            times_reviewed=card.times_reviewed,
+            times_correct=card.times_correct,
+            times_wrong=card.times_wrong,
+            status=card.status,
+            is_marked=card.is_marked,
+            image=bytes(card.image) if card.image else None,
+            image_mime=card.image_mime,
+            image_face=card.image_face,
+        )
+        copied += 1
+    return copied
+
+
+def filter_cards_for_deck(deck, query="", tag="", status="") -> list:
     query = (query or "").strip().lower()
     normalized_tag = normalize_tags(tag)
     selected_tag = normalized_tag[0] if normalized_tag else ""
+    selected_status = (status or "").strip()
     cards = list(cards_for_deck(deck))
 
     if query:
@@ -193,6 +233,8 @@ def filter_cards_for_deck(deck, query="", tag="") -> list:
         ]
     if selected_tag:
         cards = [card for card in cards if selected_tag in (card.tags or [])]
+    if selected_status:
+        cards = [card for card in cards if card.status == selected_status]
     return cards
 
 

@@ -11,9 +11,11 @@ from .rendering import RenderedFace, render_card_face, render_content
 from .services import (
     REVIEW_ALL_MODE,
     REVIEW_HIDDEN_MODE,
+    add_tags_to_cards,
     apply_review_action,
     cards_for_deck,
     clear_review_session,
+    copy_cards_to_deck,
     create_cards_from_parsed,
     current_review_card,
     decks_queryset,
@@ -53,7 +55,7 @@ def deck_detail(request, deck_id):
     return render(
         request,
         "cards/deck_detail.html",
-        {"deck": deck, "cards": cards_for_deck(deck), "query": "", "selected_tag": ""},
+        {"deck": deck, "cards": cards_for_deck(deck), "query": "", "selected_tag": "", "selected_status": ""},
     )
 
 
@@ -61,7 +63,8 @@ def card_list(request, deck_id):
     deck = get_deck(deck_id)
     query = request.GET.get("q", "")
     selected_tag = request.GET.get("tag", "")
-    cards = filter_cards_for_deck(deck, query=query, tag=selected_tag)
+    selected_status = request.GET.get("status", "")
+    cards = filter_cards_for_deck(deck, query=query, tag=selected_tag, status=selected_status)
     return render(
         request,
         "cards/partials/card_list.html",
@@ -70,7 +73,8 @@ def card_list(request, deck_id):
             "cards": cards,
             "query": query,
             "selected_tag": selected_tag,
-            "is_filtered": bool(query.strip() or selected_tag.strip()),
+            "selected_status": selected_status,
+            "is_filtered": bool(query.strip() or selected_tag.strip() or selected_status.strip()),
         },
     )
 
@@ -440,7 +444,49 @@ def marked_cards(request):
         current_cards.append(card)
     if current_deck is not None:
         grouped.append({"deck": current_deck, "cards": current_cards})
-    return render(request, "cards/marked_cards.html", {"groups": grouped})
+    return render(
+        request,
+        "cards/marked_cards.html",
+        {
+            "groups": grouped,
+            "decks": decks_queryset(),
+        },
+    )
+
+
+@require_POST
+def marked_bulk_action(request):
+    selected_ids = request.POST.getlist("cards")
+    selected_cards = list(Card.objects.filter(id__in=selected_ids, is_marked=True).select_related("deck"))
+    if not selected_cards:
+        return redirect("cards:marked_cards")
+
+    action = request.POST.get("bulk_action")
+    if action == "tag":
+        add_tags_to_cards(selected_cards, request.POST.get("tags_text", ""))
+    elif action == "deck":
+        target_deck = None
+        new_deck_name = (request.POST.get("new_deck_name") or "").strip()
+        if new_deck_name:
+            target_deck = Deck.objects.create(name=new_deck_name)
+        else:
+            deck_id = request.POST.get("deck")
+            if deck_id:
+                target_deck = get_deck(deck_id)
+        if target_deck is not None:
+            copy_cards_to_deck(selected_cards, target_deck)
+            return redirect("cards:deck_detail", deck_id=target_deck.id)
+    return redirect("cards:marked_cards")
+
+
+@require_POST
+def card_mark(request, deck_id, card_id):
+    deck = get_deck(deck_id)
+    card = get_card_for_deck(deck, card_id)
+    mark_card(card)
+    if request.htmx:
+        return render(request, "cards/partials/card_row.html", {"deck": deck, "card": card})
+    return redirect("cards:deck_detail", deck_id=deck.id)
 
 
 @require_POST

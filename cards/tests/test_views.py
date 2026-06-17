@@ -129,6 +129,19 @@ class CardCrudViewTests(TestCase):
         self.assertEqual(card.status, Card.Status.LESS)
         self.assertEqual(card.tags, ["python"])
 
+    def test_card_row_mark_button_marks_card(self):
+        card = Card.objects.create(deck=self.deck, front="Needs review", back="Back")
+
+        response = self.client.post(
+            reverse("cards:card_mark", kwargs={"deck_id": self.deck.id, "card_id": card.id}),
+            **HTMX,
+        )
+
+        card.refresh_from_db()
+        self.assertTrue(card.is_marked)
+        self.assertContains(response, "Marked")
+        self.assertContains(response, "Unmark")
+
     def test_card_delete_htmx_returns_empty_fragment(self):
         card = Card.objects.create(deck=self.deck, front="Gone", back="Back")
 
@@ -177,6 +190,8 @@ class ReviewAllViewTests(TestCase):
         self.assertContains(response, "Incorrect")
         self.assertContains(response, "Correct")
         self.assertContains(response, "More review actions")
+        self.assertContains(response, "grid-cols-[1fr_1fr_auto]")
+        self.assertContains(response, "btn-square")
         self.assertContains(response, "Show Less")
         self.assertContains(response, "Mark")
         self.assertContains(response, "Edit")
@@ -380,6 +395,8 @@ class ReviewAllViewTests(TestCase):
         response = self.client.get(reverse("cards:marked_cards"))
 
         self.assertContains(response, "Marked cards")
+        self.assertContains(response, "Bulk actions")
+        self.assertContains(response, f'value="{marked.id}"')
         self.assertContains(response, "marked")
         self.assertNotContains(response, "plain")
 
@@ -392,6 +409,60 @@ class ReviewAllViewTests(TestCase):
         self.assertEqual(unmark.status_code, 200)
         self.assertEqual(unmark.content, b"")
         self.assertFalse(marked.is_marked)
+
+    def test_marked_bulk_action_adds_tags_to_selected_cards(self):
+        first = self.make_card("first", is_marked=True, tags=["old"])
+        second = self.make_card("second", is_marked=True)
+        unselected = self.make_card("third", is_marked=True)
+
+        response = self.client.post(
+            reverse("cards:marked_bulk_action"),
+            {
+                "cards": [str(first.id), str(second.id)],
+                "bulk_action": "tag",
+                "tags_text": "Important, old",
+            },
+        )
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        unselected.refresh_from_db()
+        self.assertRedirects(response, reverse("cards:marked_cards"))
+        self.assertEqual(first.tags, ["old", "important"])
+        self.assertEqual(second.tags, ["important", "old"])
+        self.assertEqual(unselected.tags, [])
+
+    def test_marked_bulk_action_copies_selected_cards_to_existing_or_new_deck(self):
+        marked = self.make_card("marked", is_marked=True, tags=["review"])
+        target = Deck.objects.create(name="Target")
+
+        response = self.client.post(
+            reverse("cards:marked_bulk_action"),
+            {
+                "cards": [str(marked.id)],
+                "bulk_action": "deck",
+                "deck": str(target.id),
+            },
+        )
+
+        self.assertRedirects(response, reverse("cards:deck_detail", kwargs={"deck_id": target.id}))
+        copied = Card.objects.get(deck=target)
+        self.assertNotEqual(copied.id, marked.id)
+        self.assertEqual(copied.front, marked.front)
+        self.assertTrue(copied.is_marked)
+
+        response = self.client.post(
+            reverse("cards:marked_bulk_action"),
+            {
+                "cards": [str(marked.id)],
+                "bulk_action": "deck",
+                "new_deck_name": "New marked deck",
+            },
+        )
+
+        new_deck = Deck.objects.get(name="New marked deck")
+        self.assertRedirects(response, reverse("cards:deck_detail", kwargs={"deck_id": new_deck.id}))
+        self.assertEqual(Card.objects.filter(deck=new_deck, front=marked.front).count(), 1)
 
 
 class PhaseTwoViewTests(TestCase):
@@ -658,6 +729,19 @@ class PhaseThreePolishTests(TestCase):
         )
         self.assertContains(combined_response, "grep inverse")
         self.assertNotContains(combined_response, "CIDR")
+
+    def test_card_filter_can_show_hidden_cards_only(self):
+        Card.objects.create(deck=self.deck, front="Archived", back="Hidden back", status=Card.Status.HIDDEN)
+
+        response = self.client.get(
+            reverse("cards:card_list", kwargs={"deck_id": self.deck.id}),
+            {"status": Card.Status.HIDDEN},
+            **HTMX,
+        )
+
+        self.assertContains(response, "Archived")
+        self.assertContains(response, "Hidden")
+        self.assertNotContains(response, "Kernel modules")
 
     def test_card_filter_returns_fragment_and_no_match_empty_state(self):
         response = self.client.get(
