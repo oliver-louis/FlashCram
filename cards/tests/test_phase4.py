@@ -9,7 +9,7 @@ from django.urls import reverse
 from PIL import Image
 
 from cards.models import Card, Deck, Settings
-from cards.rendering import card_image_data_uri, plain_text_preview, render_card_face, render_content
+from cards.rendering import card_image_data_uri, normalize_display_math_blocks, plain_text_preview, render_card_face, render_content
 from cards.services import ImageProcessingError, export_backup, import_backup, process_image_bytes
 
 
@@ -34,6 +34,31 @@ class RenderingTests(TestCase):
         self.assertIn("\\[z_3\\]", rendered)
         self.assertIn("highlight", rendered)
         self.assertIn("print", rendered)
+
+    def test_markdown_display_math_renders_without_manual_blank_lines(self):
+        source = (
+            "A person’s share of total payoff:\n"
+            "\\[\n"
+            "\\sigma_i=\\frac{x_i}{\\sum_j x_j}\n"
+            "\\]\n"
+            "\n"
+            "Example: someone may dislike taking much more than their fair share of a cake."
+        )
+
+        rendered = str(render_content(source, Card.ContentFormat.MARKDOWN))
+
+        self.assertIn("arithmatex", rendered)
+        self.assertIn("\\[", rendered)
+        self.assertIn("\\sigma_i=\\frac{x_i}{\\sum_j x_j}", rendered)
+        self.assertIn("</div>", rendered)
+        self.assertIn("<p>Example:", rendered)
+
+    def test_display_math_spacing_normalization_skips_fenced_code(self):
+        source = "Text:\n\\[\nx\n\\]\n\n```text\n\\[\nnot math\n\\]\n```"
+        normalized = normalize_display_math_blocks(source)
+
+        self.assertIn("Text:\n\n\\[\nx\n\\]\n", normalized)
+        self.assertIn("```text\n\\[\nnot math\n\\]\n```", normalized)
 
     def test_markdown_does_not_enable_inline_dollar_math(self):
         rendered = str(render_content("$x$ $HOME $10.00", Card.ContentFormat.MARKDOWN))

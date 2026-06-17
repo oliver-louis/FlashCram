@@ -35,6 +35,8 @@ MATH_PREVIEW_PATTERNS = [
     re.compile(r"\\\[(.*?)\\\]", re.DOTALL),
     re.compile(r"\$\$(.*?)\$\$", re.DOTALL),
 ]
+DISPLAY_MATH_OPENERS = {"\\["}
+DISPLAY_MATH_CLOSERS = {"\\]"}
 ALLOWED_TAGS = [
     "a",
     "blockquote",
@@ -81,12 +83,47 @@ class RenderedFace:
     enable_math: bool = False
 
 
+def normalize_display_math_blocks(source: str) -> str:
+    """Give standalone display math delimiters paragraph spacing for Markdown."""
+    lines = (source or "").splitlines()
+    if not lines:
+        return source or ""
+
+    normalized: list[str] = []
+    in_fence = False
+    in_dollar_math = False
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_fence = not in_fence
+
+        is_square_opener = not in_fence and stripped in DISPLAY_MATH_OPENERS
+        is_square_closer = not in_fence and stripped in DISPLAY_MATH_CLOSERS
+        is_dollar_delimiter = not in_fence and stripped == "$$"
+        is_opener = is_square_opener or (is_dollar_delimiter and not in_dollar_math)
+        is_closer = is_square_closer or (is_dollar_delimiter and in_dollar_math)
+
+        if is_opener and normalized and normalized[-1].strip():
+            normalized.append("")
+
+        normalized.append(line)
+
+        next_line = lines[index + 1] if index + 1 < len(lines) else ""
+        if is_closer and next_line.strip():
+            normalized.append("")
+        if is_dollar_delimiter:
+            in_dollar_math = not in_dollar_math
+
+    trailing_newline = "\n" if (source or "").endswith("\n") else ""
+    return "\n".join(normalized) + trailing_newline
+
+
 def render_content(text: str, content_format: str) -> SafeString:
     if content_format != "markdown":
         escaped = html.escape(text or "").replace("\n", "<br>")
         return mark_safe(escaped)
 
-    source = text or ""
+    source = normalize_display_math_blocks(text or "")
     rendered = markdown.markdown(
         source,
         extensions=MARKDOWN_EXTENSIONS,
@@ -131,8 +168,9 @@ def strip_math_delimiters(text: str) -> str:
 def plain_text_preview(text: str, content_format: str) -> str:
     if content_format != "markdown":
         return text or ""
+    source = normalize_display_math_blocks(text or "")
     rendered = markdown.markdown(
-        text or "",
+        source,
         extensions=MARKDOWN_EXTENSIONS,
         extension_configs=MARKDOWN_EXTENSION_CONFIGS,
         output_format="html",
