@@ -11,6 +11,11 @@ env = environ.Env(
     DJANGO_SECRET_KEY=(str, "dev-insecure-change-me"),
     ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1", "0.0.0.0"]),
     CSRF_TRUSTED_ORIGINS=(list, []),
+    USE_X_FORWARDED_HOST=(bool, False),
+    SECURE_PROXY_SSL_HEADER=(bool, False),
+    SESSION_COOKIE_SECURE=(bool, False),
+    CSRF_COOKIE_SECURE=(bool, False),
+    SECURE_SSL_REDIRECT=(bool, False),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -18,6 +23,12 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+USE_X_FORWARDED_HOST = env("USE_X_FORWARDED_HOST")
+SESSION_COOKIE_SECURE = env("SESSION_COOKIE_SECURE")
+CSRF_COOKIE_SECURE = env("CSRF_COOKIE_SECURE")
+SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT")
+if env("SECURE_PROXY_SSL_HEADER"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

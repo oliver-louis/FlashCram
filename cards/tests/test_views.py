@@ -12,6 +12,13 @@ from cards.services import REVIEW_SESSION_KEY
 HTMX = {"HTTP_HX_REQUEST": "true"}
 
 
+class HealthViewTests(TestCase):
+    def test_healthz_returns_ok(self):
+        response = self.client.get("/healthz/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"ok\n")
+
+
 class DeckCrudViewTests(TestCase):
     def test_home_lists_deck_counts(self):
         deck = Deck.objects.create(name="Linux")
