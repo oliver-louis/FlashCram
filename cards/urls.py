@@ -19,6 +19,11 @@ urlpatterns = [
         name="card_edit",
     ),
     path(
+        "decks/<uuid:deck_id>/cards/<uuid:card_id>/preview-display/",
+        views.card_display_preview,
+        name="card_display_preview",
+    ),
+    path(
         "decks/<uuid:deck_id>/cards/<uuid:card_id>/delete/",
         views.card_delete,
         name="card_delete",

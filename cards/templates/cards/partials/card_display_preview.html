@@ -1,0 +1,47 @@
+<div
+  id="card-preview-modal"
+  class="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4"
+  x-data="{ open: true, revealed: false }"
+  x-show="open"
+  x-transition
+  @keydown.escape.window="open = false"
+>
+  <section class="flex max-h-[92vh] w-full max-w-2xl flex-col gap-3">
+    <div class="fc-glass flex items-center justify-between gap-3 rounded-3xl p-3">
+      <div class="min-w-0">
+        <p class="truncate text-sm fc-muted">{{ deck.name }}</p>
+        <h2 class="truncate text-lg font-black">Card preview</h2>
+      </div>
+      <button class="btn btn-ghost btn-sm rounded-2xl" type="button" @click="open = false">Close</button>
+    </div>
+
+    <div
+      role="button"
+      tabindex="0"
+      class="fc-review-card flex min-h-[24rem] flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]"
+      @click="revealed = !revealed"
+      @keydown.enter.prevent="revealed = !revealed"
+      @keydown.space.prevent="revealed = !revealed"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
+        <div class="flex items-center gap-2">
+          {% if card.is_marked %}
+            <span class="badge badge-secondary rounded-xl">Marked</span>
+          {% endif %}
+          <span class="badge badge-outline rounded-xl" x-text="revealed ? 'Tap to flip back' : 'Tap to reveal'"></span>
+        </div>
+      </div>
+      <div class="mt-8 flex flex-1 flex-col justify-center overflow-y-auto text-2xl leading-tight sm:text-3xl" x-show="!revealed">
+        {% with rendered_face=rendered_front %}
+          {% include "cards/partials/rendered_face.html" %}
+        {% endwith %}
+      </div>
+      <div class="mt-8 flex flex-1 flex-col justify-center overflow-y-auto text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
+        {% with rendered_face=rendered_back %}
+          {% include "cards/partials/rendered_face.html" %}
+        {% endwith %}
+      </div>
+    </div>
+  </section>
+</div>

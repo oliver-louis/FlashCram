@@ -127,7 +127,12 @@
 
   .fc-rendered-content {
     color: inherit;
+    font-weight: 400;
     overflow-wrap: anywhere;
+  }
+
+  .fc-rendered-content :where(strong, b) {
+    font-weight: 800;
   }
 
   .fc-rendered-content :where(p, ul, ol, blockquote, pre, table) {

@@ -33,12 +33,12 @@
           </form>
         </div>
       </div>
-      <div class="mt-8 flex flex-1 flex-col justify-center text-2xl font-black leading-tight sm:text-3xl" x-show="!revealed">
+      <div class="mt-8 flex flex-1 flex-col justify-center text-2xl leading-tight sm:text-3xl" x-show="!revealed">
         {% with rendered_face=rendered_front %}
           {% include "cards/partials/rendered_face.html" %}
         {% endwith %}
       </div>
-      <div class="mt-8 flex flex-1 flex-col justify-center text-2xl font-black leading-tight sm:text-3xl" x-cloak x-show="revealed">
+      <div class="mt-8 flex flex-1 flex-col justify-center text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
         {% with rendered_face=rendered_back %}
           {% include "cards/partials/rendered_face.html" %}
         {% endwith %}

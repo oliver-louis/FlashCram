@@ -142,6 +142,33 @@ class CardCrudViewTests(TestCase):
         self.assertContains(response, "Marked")
         self.assertContains(response, "Unmark")
 
+    def test_card_row_preview_button_opens_review_style_fragment(self):
+        card = Card.objects.create(
+            deck=self.deck,
+            front="Normal **bold**",
+            back="Back text",
+            content_format=Card.ContentFormat.MARKDOWN,
+        )
+
+        detail = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": self.deck.id}))
+        self.assertContains(detail, "card-preview-slot")
+        self.assertContains(detail, "Preview")
+        self.assertContains(
+            detail,
+            reverse("cards:card_display_preview", kwargs={"deck_id": self.deck.id, "card_id": card.id}),
+        )
+
+        response = self.client.get(
+            reverse("cards:card_display_preview", kwargs={"deck_id": self.deck.id, "card_id": card.id}),
+            **HTMX,
+        )
+
+        self.assertContains(response, 'id="card-preview-modal"')
+        self.assertContains(response, "Card preview")
+        self.assertContains(response, "Tap to reveal")
+        self.assertContains(response, "<strong>bold</strong>", html=True)
+        self.assertNotContains(response, "<!doctype html>")
+
     def test_card_delete_htmx_returns_empty_fragment(self):
         card = Card.objects.create(deck=self.deck, front="Gone", back="Back")
 
@@ -187,6 +214,8 @@ class ReviewAllViewTests(TestCase):
 
         response = self.start_review()
 
+        self.assertNotContains(response, "text-2xl font-black leading-tight")
+        self.assertContains(response, "text-2xl leading-tight")
         self.assertContains(response, "Incorrect")
         self.assertContains(response, "Correct")
         self.assertContains(response, "More review actions")

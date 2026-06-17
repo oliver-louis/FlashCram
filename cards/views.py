@@ -250,6 +250,21 @@ def card_preview(request, deck_id):
     )
 
 
+def card_display_preview(request, deck_id, card_id):
+    deck = get_deck(deck_id)
+    card = get_card_for_deck(deck, card_id)
+    return render(
+        request,
+        "cards/partials/card_display_preview.html",
+        {
+            "deck": deck,
+            "card": card,
+            "rendered_front": render_card_face(card, Card.ImageFace.FRONT),
+            "rendered_back": render_card_face(card, Card.ImageFace.BACK),
+        },
+    )
+
+
 @require_POST
 def card_delete(request, deck_id, card_id):
     deck = get_deck(deck_id)
