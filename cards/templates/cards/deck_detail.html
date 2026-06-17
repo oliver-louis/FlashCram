@@ -6,8 +6,6 @@
   <div class="flex flex-col gap-6">
     <a class="btn btn-ghost w-fit rounded-2xl px-2" href="{% url 'cards:home' %}">‹ Back to decks</a>
 
-    {% include "cards/partials/deck_header.html" %}
-
     <section class="fc-card overflow-hidden rounded-3xl p-4 sm:p-5" x-data="{ reviewOpen: false }">
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -50,6 +48,8 @@
         {% endif %}
       </div>
     </section>
+
+    {% include "cards/partials/deck_header.html" %}
 
     <div id="card-form-slot"></div>
 

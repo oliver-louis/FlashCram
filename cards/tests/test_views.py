@@ -24,6 +24,18 @@ class DeckCrudViewTests(TestCase):
         self.assertContains(response, "2")
         self.assertContains(response, "hidden")
 
+    def test_home_deck_cards_are_mobile_compact_and_include_review_action(self):
+        deck = Deck.objects.create(name="A very long deck title that should wrap on mobile instead of causing horizontal scrolling")
+        Card.objects.create(deck=deck, front="front", back="back")
+
+        response = self.client.get(reverse("cards:home"))
+
+        self.assertContains(response, "line-clamp-2 break-words")
+        self.assertContains(response, f'href="{reverse("cards:review_start", kwargs={"deck_id": deck.id})}"')
+        self.assertContains(response, ">Review</a>")
+        self.assertContains(response, "sm:hidden")
+        self.assertContains(response, "hidden grid-cols-3")
+
     def test_deck_create_htmx_returns_card_fragment(self):
         response = self.client.post(
             reverse("cards:deck_create"),
@@ -295,6 +307,14 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, "Review weak")
         self.assertContains(response, "Bulk import")
         self.assertContains(response, "Review by tag")
+
+    def test_deck_detail_places_review_before_deck_info(self):
+        deck = Deck.objects.create(name="Order")
+
+        response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
+        html = response.content.decode()
+
+        self.assertLess(html.index(">Review<"), html.index(">Deck<"))
 
     def test_bulk_import_preview_and_confirm_existing_deck(self):
         deck = Deck.objects.create(name="Import target")
