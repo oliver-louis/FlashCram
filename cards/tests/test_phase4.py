@@ -1,5 +1,6 @@
 import base64
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -87,6 +88,16 @@ class RenderingTests(TestCase):
         self.assertIn("z_3", preview)
         for token in ["\\(", "\\[", "$$"]:
             self.assertNotIn(token, preview)
+
+    def test_markdown_bullet_lists_render_with_visible_marker_styles(self):
+        rendered = str(render_content("Possible explanations:\n\n- Altruism\n- Equality", Card.ContentFormat.MARKDOWN))
+        css = Path("static_src/input.css").read_text()
+
+        self.assertIn("<ul>", rendered)
+        self.assertIn("<li>Altruism</li>", rendered)
+        self.assertIn("list-style-type: disc", css)
+        self.assertIn("list-style-type: decimal", css)
+        self.assertIn("padding-inline-start", css)
 
 
 class PreviewViewTests(TestCase):
