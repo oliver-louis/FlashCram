@@ -61,6 +61,30 @@ class DeckCrudViewTests(TestCase):
         deck.refresh_from_db()
         self.assertEqual(deck.name, "New")
 
+    def test_deck_edit_form_keeps_htmx_target_after_outer_swap(self):
+        deck = Deck.objects.create(name="Old", description="Before")
+
+        form_response = self.client.get(
+            reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
+            **HTMX,
+        )
+
+        self.assertContains(form_response, 'id="deck-header"')
+        self.assertContains(form_response, 'hx-target="#deck-header"')
+
+        save_response = self.client.post(
+            reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
+            {"name": "Renamed", "description": "After"},
+            **HTMX,
+        )
+
+        deck.refresh_from_db()
+        self.assertEqual(deck.name, "Renamed")
+        self.assertEqual(deck.description, "After")
+        self.assertContains(save_response, 'id="deck-header"')
+        self.assertContains(save_response, "Renamed")
+        self.assertContains(save_response, "After")
+
     def test_deck_delete_htmx_cascades_cards_and_redirects(self):
         deck = Deck.objects.create(name="Delete me")
         Card.objects.create(deck=deck, front="front", back="back")

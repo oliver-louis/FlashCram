@@ -1,4 +1,4 @@
-<section class="fc-card rounded-3xl p-5">
+<section {% if deck %}id="deck-header"{% endif %} class="fc-card rounded-3xl p-5">
   <h2 class="mb-4 text-2xl font-black">{{ title }}</h2>
   <form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="{% if deck %}#deck-header{% else %}#deck-list{% endif %}" hx-swap="{% if deck %}outerHTML{% else %}afterbegin{% endif %}" class="space-y-4">
     {% csrf_token %}
