@@ -571,7 +571,9 @@ class PhaseTwoViewTests(TestCase):
 
         response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
 
-        self.assertContains(response, "overflow-x-hidden")
+        self.assertContains(response, "flex min-w-0 max-w-full flex-col gap-6")
+        self.assertNotContains(response, "fc-shell mx-auto flex w-full max-w-5xl flex-col overflow-x-hidden")
+        self.assertNotContains(response, "flex max-w-full flex-col gap-6 overflow-x-hidden")
         self.assertContains(response, 'id="deck-header" class="fc-card max-w-full rounded-3xl')
         self.assertContains(response, "absolute bottom-full right-0")
         self.assertContains(response, "min-w-0 max-w-full overflow-hidden rounded-3xl")
