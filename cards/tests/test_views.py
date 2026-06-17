@@ -572,6 +572,8 @@ class PhaseTwoViewTests(TestCase):
         response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
 
         self.assertContains(response, "overflow-x-hidden")
+        self.assertContains(response, 'id="deck-header" class="fc-card max-w-full rounded-3xl')
+        self.assertContains(response, "absolute bottom-full right-0")
         self.assertContains(response, "min-w-0 max-w-full overflow-hidden rounded-3xl")
         self.assertContains(response, "line-clamp-2 break-words")
         self.assertContains(response, "max-w-full truncate")
