@@ -213,6 +213,32 @@ class ReviewAllViewTests(TestCase):
         )
         self.assertContains(response, "first")
 
+    def test_skip_advances_without_counter_changes_and_can_undo(self):
+        first = self.make_card("first")
+        second = self.make_card("second")
+        start = self.start_review()
+        self.assertContains(start, "Tap to flip back")
+        self.assertContains(start, "Skip")
+
+        response = self.grade("skip")
+
+        first.refresh_from_db()
+        session = self.client.session[REVIEW_SESSION_KEY]
+        self.assertEqual(first.times_reviewed, 0)
+        self.assertEqual(first.times_correct, 0)
+        self.assertEqual(first.times_wrong, 0)
+        self.assertEqual(session["cursor"], 1)
+        self.assertEqual(
+            session["summary"],
+            {"reviewed": 0, "correct": 0, "wrong": 0, "marked_less": 0, "marked_hidden": 0},
+        )
+        self.assertContains(response, "second")
+
+        undo = self.client.post(reverse("cards:review_undo"), **HTMX)
+        session = self.client.session[REVIEW_SESSION_KEY]
+        self.assertEqual(session["cursor"], 0)
+        self.assertContains(undo, "first")
+
     def test_session_advances_to_summary_and_clears(self):
         first = self.make_card("first")
         second = self.make_card("second")
@@ -312,6 +338,17 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, "Accepted authoring JSON format")
         self.assertContains(response, "flashcram.cards.v1")
         self.assertContains(response, "Backup JSON files should be imported from Settings")
+
+    def test_bulk_import_prefills_deck_from_query_parameter(self):
+        deck = Deck.objects.create(name="Prefill target")
+
+        detail = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
+        self.assertContains(detail, f'?deck={deck.id}')
+
+        response = self.client.get(reverse("cards:bulk_import"), {"deck": str(deck.id)})
+
+        self.assertContains(response, "Prefill target")
+        self.assertContains(response, f'<option value="{deck.id}" selected>Prefill target</option>')
 
     def test_authoring_json_file_preview_and_confirm_existing_deck(self):
         deck = Deck.objects.create(name="JSON target")

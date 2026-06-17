@@ -19,10 +19,16 @@
   </header>
 
   <div x-data="{ revealed: false }" class="flex flex-1 flex-col gap-4">
-    <div role="button" tabindex="0" class="fc-review-card flex flex-1 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]" @click="revealed = true" @keydown.enter.prevent="revealed = true" @keydown.space.prevent="revealed = true">
+    <div role="button" tabindex="0" class="fc-review-card flex flex-1 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]" @click="revealed = !revealed" @keydown.enter.prevent="revealed = !revealed" @keydown.space.prevent="revealed = !revealed">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
-        <span class="badge badge-outline rounded-xl" x-show="!revealed">Tap to reveal</span>
+        <div class="flex items-center gap-2">
+          <span class="badge badge-outline rounded-xl" x-text="revealed ? 'Tap to flip back' : 'Tap to reveal'"></span>
+          <form method="post" action="{% url 'cards:review_grade' 'skip' %}" @click.stop>
+            {% csrf_token %}
+            <button class="btn btn-ghost btn-sm rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'skip' %}" hx-target="#review-panel" hx-swap="outerHTML" aria-label="Skip this card">Skip</button>
+          </form>
+        </div>
       </div>
       <div class="mt-8 flex flex-1 flex-col justify-center text-2xl font-black leading-tight sm:text-3xl" x-show="!revealed">
         {% with rendered_face=rendered_front %}

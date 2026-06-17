@@ -337,7 +337,10 @@ def bulk_import(request):
             post_data["authoring_json_text"] = request.FILES["authoring_json_file"].read().decode("utf-8-sig")
         except UnicodeDecodeError:
             post_data["authoring_json_text"] = ""
-    form = BulkImportForm(post_data or None, request.FILES or None)
+    initial = {}
+    if request.method == "GET" and request.GET.get("deck"):
+        initial["deck"] = request.GET.get("deck")
+    form = BulkImportForm(post_data or None, request.FILES or None, initial=initial)
 
     if request.method == "POST" and form.is_valid():
         intent = request.POST.get("intent", "raw_preview")

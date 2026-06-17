@@ -37,7 +37,7 @@ REVIEW_MODES = {
 }
 SUMMARY_KEYS = ("reviewed", "correct", "wrong", "marked_less", "marked_hidden")
 NORMAL_REVIEW_ACTIONS = {"got_it", "wrong", "show_less", "hide"}
-HIDDEN_REVIEW_ACTIONS = {"restore", "keep_hidden"}
+HIDDEN_REVIEW_ACTIONS = {"restore", "keep_hidden", "skip"}
 ALLOWED_IMAGE_MIMES = {
     "GIF": "image/gif",
     "JPEG": "image/jpeg",
@@ -323,7 +323,7 @@ def apply_review_action(request, action: str) -> dict:
         raise ValueError("No active review card")
     if session.get("mode") == REVIEW_HIDDEN_MODE:
         return apply_hidden_review_action(request, action, session)
-    if action not in NORMAL_REVIEW_ACTIONS:
+    if action not in NORMAL_REVIEW_ACTIONS | {"skip"}:
         raise ValueError(f"Invalid action for review mode: {action}")
 
     card = current_review_card(session)
@@ -338,24 +338,31 @@ def apply_review_action(request, action: str) -> dict:
     }
 
     summary_delta = empty_review_summary()
-    card.times_reviewed += 1
-    summary_delta["reviewed"] = 1
 
     if action == "got_it":
+        card.times_reviewed += 1
         card.times_correct += 1
+        summary_delta["reviewed"] = 1
         summary_delta["correct"] = 1
     elif action == "wrong":
+        card.times_reviewed += 1
         card.times_wrong += 1
+        summary_delta["reviewed"] = 1
         summary_delta["wrong"] = 1
         session["queue"].append(str(card.id))
     elif action == "show_less":
+        card.times_reviewed += 1
         card.status = Card.Status.LESS
+        summary_delta["reviewed"] = 1
         summary_delta["marked_less"] = 1
     elif action == "hide":
+        card.times_reviewed += 1
         card.status = Card.Status.HIDDEN
+        summary_delta["reviewed"] = 1
         summary_delta["marked_hidden"] = 1
 
-    card.save()
+    if action != "skip":
+        card.save()
     for key, delta in summary_delta.items():
         session["summary"][key] += delta
 
@@ -396,10 +403,12 @@ def apply_hidden_review_action(request, action: str, session: dict | None = None
     }
 
     summary_delta = empty_review_summary()
-    summary_delta["reviewed"] = 1
     if action == "restore":
         card.status = Card.Status.NORMAL
         card.save()
+        summary_delta["reviewed"] = 1
+    elif action == "keep_hidden":
+        summary_delta["reviewed"] = 1
 
     for key, delta in summary_delta.items():
         session["summary"][key] += delta
