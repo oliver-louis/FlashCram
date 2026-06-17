@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import random
 import re
+from base64 import b64decode, b64encode
+from io import BytesIO
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
@@ -12,6 +14,7 @@ from uuid import UUID
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from PIL import Image, UnidentifiedImageError
 
 
 TAG_SPLIT_RE = re.compile(r"[,\s]+")
@@ -35,6 +38,18 @@ REVIEW_MODES = {
 SUMMARY_KEYS = ("reviewed", "correct", "wrong", "marked_less", "marked_hidden")
 NORMAL_REVIEW_ACTIONS = {"got_it", "wrong", "show_less", "hide"}
 HIDDEN_REVIEW_ACTIONS = {"restore", "keep_hidden"}
+ALLOWED_IMAGE_MIMES = {
+    "GIF": "image/gif",
+    "JPEG": "image/jpeg",
+    "PNG": "image/png",
+    "WEBP": "image/webp",
+}
+MAX_IMAGE_BYTES = 1_000_000
+MAX_IMAGE_EDGE = 1600
+
+
+class ImageProcessingError(ValueError):
+    pass
 
 
 def normalize_tags(tags: Iterable[str] | str | None) -> list[str]:
@@ -54,6 +69,66 @@ def normalize_tags(tags: Iterable[str] | str | None) -> list[str]:
         seen.add(value)
         normalized.append(value)
     return normalized
+
+
+def process_image_upload(uploaded_file) -> tuple[bytes, str]:
+    if not uploaded_file:
+        return b"", ""
+    data = uploaded_file.read()
+    return process_image_bytes(data)
+
+
+def process_image_bytes(data: bytes) -> tuple[bytes, str]:
+    if not data:
+        raise ImageProcessingError("Image file is empty.")
+    try:
+        image = Image.open(BytesIO(data))
+        image_format = (image.format or "").upper()
+    except UnidentifiedImageError as exc:
+        raise ImageProcessingError("Unsupported image type. Use PNG, JPEG, WEBP, or GIF.") from exc
+
+    mime = ALLOWED_IMAGE_MIMES.get(image_format)
+    if not mime:
+        raise ImageProcessingError("Unsupported image type. Use PNG, JPEG, WEBP, or GIF.")
+
+    is_animated_gif = image_format == "GIF" and getattr(image, "is_animated", False)
+    if is_animated_gif:
+        if len(data) > MAX_IMAGE_BYTES:
+            raise ImageProcessingError("Animated GIF is too large. Use an image under 1 MB.")
+        return data, mime
+
+    output = BytesIO()
+    image.load()
+    image.thumbnail((MAX_IMAGE_EDGE, MAX_IMAGE_EDGE), Image.Resampling.LANCZOS)
+
+    save_format = image_format
+    save_kwargs = {}
+    if image_format == "JPEG":
+        if image.mode not in {"RGB", "L"}:
+            image = image.convert("RGB")
+        save_kwargs = {"quality": 85, "optimize": True}
+    elif image_format == "PNG":
+        save_kwargs = {"optimize": True}
+    elif image_format == "WEBP":
+        save_kwargs = {"quality": 85, "method": 6}
+
+    image.save(output, format=save_format, **save_kwargs)
+    processed = output.getvalue()
+    if len(processed) > MAX_IMAGE_BYTES:
+        raise ImageProcessingError("Image is too large after processing. Use an image under 1 MB.")
+    return processed, mime
+
+
+def image_to_base64(image_bytes) -> str | None:
+    if not image_bytes:
+        return None
+    return b64encode(bytes(image_bytes)).decode("ascii")
+
+
+def image_from_base64(value: str | None) -> bytes | None:
+    if not value:
+        return None
+    return b64decode(value)
 
 
 def get_settings():
@@ -441,12 +516,14 @@ def create_cards_from_parsed(deck, parsed_cards: list[ParsedCard]) -> list:
     from .models import Card
 
     created = []
+    settings = get_settings()
     for parsed in parsed_cards:
         created.append(
             Card.objects.create(
                 deck=deck,
                 front=parsed.front,
                 back=parsed.back,
+                content_format=settings.default_content_format,
                 tags=parsed.tags,
             )
         )
@@ -486,6 +563,9 @@ def serialize_card(card) -> dict:
         "back": card.back,
         "contentFormat": card.content_format,
         "tags": card.tags or [],
+        "image": image_to_base64(card.image),
+        "imageMime": card.image_mime or "",
+        "imageFace": card.image_face,
         "timesReviewed": card.times_reviewed,
         "timesCorrect": card.times_correct,
         "timesWrong": card.times_wrong,
@@ -541,6 +621,9 @@ def import_backup(payload) -> dict[str, int]:
                     "back": card_data.get("back", ""),
                     "content_format": card_data.get("contentFormat", Card.ContentFormat.PLAINTEXT),
                     "tags": normalize_tags(card_data.get("tags", [])),
+                    "image": image_from_base64(card_data.get("image")),
+                    "image_mime": card_data.get("imageMime", ""),
+                    "image_face": card_data.get("imageFace", Card.ImageFace.BACK),
                     "times_reviewed": int(card_data.get("timesReviewed", 0)),
                     "times_correct": int(card_data.get("timesCorrect", 0)),
                     "times_wrong": int(card_data.get("timesWrong", 0)),

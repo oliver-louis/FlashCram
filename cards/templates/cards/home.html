@@ -3,25 +3,29 @@
 {% block title %}Decks | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex flex-col gap-5 pb-8">
-    <header class="flex items-center justify-between gap-3">
-      <div>
-        <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
-        <h1 class="text-3xl font-bold">Decks</h1>
+  <div class="flex flex-col gap-6">
+    <header class="fc-card rounded-3xl p-5 sm:p-6">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Study deck hub</p>
+          <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Decks</h1>
+          <p class="mt-2 max-w-xl text-sm fc-muted sm:text-base">Pick a deck, start a quick review, or add cards before the next cram session.</p>
+        </div>
+        <a class="btn btn-primary fc-tap shrink-0 rounded-2xl px-5" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
       </div>
-      <a class="btn btn-primary" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
     </header>
 
     <div id="deck-form-slot"></div>
 
-    <section id="deck-list" class="grid gap-3">
+    <section id="deck-list" class="grid gap-3 md:grid-cols-2">
       {% for deck in decks %}
         {% include "cards/partials/deck_card.html" %}
       {% empty %}
-        <div id="empty-deck-list" class="rounded-lg border border-dashed border-base-300 bg-base-100 p-8 text-center">
-          <h2 class="text-xl font-semibold">No decks yet</h2>
-          <p class="mt-2 text-base-content/70">Create your first deck to start building a cram set.</p>
-          <a class="btn btn-primary mt-4" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">Create deck</a>
+        <div id="empty-deck-list" class="fc-card rounded-3xl border-dashed p-8 text-center md:col-span-2">
+          <div class="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-primary/15 text-3xl font-black text-primary">F</div>
+          <h2 class="mt-5 text-2xl font-black">No decks yet</h2>
+          <p class="mx-auto mt-2 max-w-sm fc-muted">Create your first deck and FlashCram will keep the review actions one tap away.</p>
+          <a class="btn btn-primary btn-lg mt-6 rounded-2xl" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">Create deck</a>
         </div>
       {% endfor %}
     </section>

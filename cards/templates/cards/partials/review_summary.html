@@ -1,19 +1,19 @@
-<section id="review-panel" class="flex min-h-[calc(100vh-8rem)] flex-col justify-center gap-6 text-center">
-  <div>
-    <p class="text-sm font-semibold uppercase tracking-wide text-primary">{{ deck.name }}</p>
-    <h1 class="mt-2 text-3xl font-bold">Session complete</h1>
+<section id="review-panel" class="flex min-h-[calc(100vh-7rem)] flex-col justify-center gap-6 text-center">
+  <div class="fc-card rounded-3xl p-6">
+    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">{{ deck.name }}</p>
+    <h1 class="mt-2 text-3xl font-black">Session complete</h1>
+    <p class="mt-2 fc-muted">Nice work. Here is what changed in this review.</p>
+    <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div class="fc-stat"><strong class="block text-2xl">{{ summary.reviewed }}</strong><span class="fc-muted">reviewed</span></div>
+      <div class="fc-stat"><strong class="block text-2xl">{{ summary.correct }}</strong><span class="fc-muted">correct</span></div>
+      <div class="fc-stat"><strong class="block text-2xl">{{ summary.wrong }}</strong><span class="fc-muted">wrong</span></div>
+      <div class="fc-stat"><strong class="block text-2xl">{{ summary.marked_less }}</strong><span class="fc-muted">less</span></div>
+      <div class="fc-stat col-span-2 sm:col-span-1"><strong class="block text-2xl">{{ summary.marked_hidden }}</strong><span class="fc-muted">hidden</span></div>
+    </div>
   </div>
 
-  <div class="grid grid-cols-2 gap-3 text-center">
-    <div class="rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.reviewed }}</strong><br>reviewed</div>
-    <div class="rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.correct }}</strong><br>correct</div>
-    <div class="rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.wrong }}</strong><br>wrong</div>
-    <div class="rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.marked_less }}</strong><br>show less</div>
-    <div class="col-span-2 rounded-lg bg-base-100 p-4"><strong class="text-2xl">{{ summary.marked_hidden }}</strong><br>hidden</div>
-  </div>
-
-  <div class="grid gap-3">
-    <a class="btn btn-primary btn-lg" href="{% url 'cards:review_start' deck.id %}">Review again</a>
-    <a class="btn btn-outline btn-lg" href="{% url 'cards:deck_detail' deck.id %}">Back to deck</a>
+  <div class="grid gap-3 sm:grid-cols-2">
+    <a class="btn btn-primary btn-lg fc-tap rounded-2xl" href="{% url 'cards:review_start' deck.id %}">Review again</a>
+    <a class="btn btn-outline btn-lg fc-tap rounded-2xl" href="{% url 'cards:deck_detail' deck.id %}">Back to deck</a>
   </div>
 </section>

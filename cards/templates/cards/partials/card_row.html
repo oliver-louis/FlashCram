@@ -1,30 +1,31 @@
-<article id="card-{{ card.id }}" class="rounded-lg bg-base-100 p-4 shadow-sm">
+{% load card_rendering %}
+<article id="card-{{ card.id }}" class="fc-card rounded-3xl p-4">
   <div class="flex items-start justify-between gap-3">
     <div class="min-w-0">
-      <p class="line-clamp-2 font-semibold">{{ card.front }}</p>
-      <p class="mt-2 line-clamp-2 text-sm text-base-content/65">{{ card.back }}</p>
+      <p class="line-clamp-2 text-lg font-bold leading-snug">{{ card.front|card_plain_preview:card.content_format }}</p>
+      <p class="mt-2 line-clamp-2 text-sm fc-muted">{{ card.back|card_plain_preview:card.content_format }}</p>
     </div>
-    <span class="badge {% if card.status == 'hidden' %}badge-warning{% elif card.status == 'less' %}badge-info{% else %}badge-neutral{% endif %}">{{ card.get_status_display }}</span>
+    <span class="badge shrink-0 rounded-xl {% if card.status == 'hidden' %}badge-warning{% elif card.status == 'less' %}badge-info{% else %}badge-neutral{% endif %}">{{ card.get_status_display }}</span>
   </div>
   {% if card.tags %}
     <div class="mt-3 flex flex-wrap gap-2">
       {% for tag in card.tags %}
-        <span class="badge badge-outline badge-sm">{{ tag }}</span>
+        <span class="badge badge-outline badge-sm rounded-xl">{{ tag }}</span>
       {% endfor %}
     </div>
   {% endif %}
   <div class="mt-4 flex gap-2" x-data="{ confirming: false }">
-    <a class="btn btn-sm btn-outline" href="{% url 'cards:card_edit' deck.id card.id %}" hx-get="{% url 'cards:card_edit' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Edit</a>
-    <button class="btn btn-sm btn-error" type="button" @click="confirming = true">Delete</button>
+    <a class="btn btn-sm btn-outline rounded-2xl" href="{% url 'cards:card_edit' deck.id card.id %}" hx-get="{% url 'cards:card_edit' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Edit</a>
+    <button class="btn btn-sm btn-error rounded-2xl" type="button" @click="confirming = true">Delete</button>
     <div class="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" x-cloak x-show="confirming">
-      <div class="w-full max-w-sm rounded-lg bg-base-100 p-5 shadow-xl">
-        <h2 class="text-lg font-bold">Delete card?</h2>
-        <p class="mt-2 text-sm text-base-content/70">This removes the card from {{ deck.name }}.</p>
+      <div class="fc-card w-full max-w-sm rounded-3xl p-5 shadow-xl">
+        <h2 class="text-xl font-black">Delete card?</h2>
+        <p class="mt-2 text-sm fc-muted">This removes the card from {{ deck.name }}.</p>
         <div class="mt-5 grid grid-cols-2 gap-3">
-          <button class="btn btn-ghost" type="button" @click="confirming = false">Cancel</button>
+          <button class="btn btn-ghost rounded-2xl" type="button" @click="confirming = false">Cancel</button>
           <form method="post" action="{% url 'cards:card_delete' deck.id card.id %}">
             {% csrf_token %}
-            <button class="btn btn-error w-full" type="submit" hx-post="{% url 'cards:card_delete' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Delete</button>
+            <button class="btn btn-error w-full rounded-2xl" type="submit" hx-post="{% url 'cards:card_delete' deck.id card.id %}" hx-target="#card-{{ card.id }}" hx-swap="outerHTML">Delete</button>
           </form>
         </div>
       </div>

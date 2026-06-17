@@ -1,18 +1,28 @@
-<article id="deck-{{ deck.id }}" class="rounded-lg bg-base-100 p-4 shadow-sm">
-  <a class="block" href="{% url 'cards:deck_detail' deck.id %}">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <h2 class="text-xl font-bold">{{ deck.name }}</h2>
-        {% if deck.description %}
-          <p class="mt-1 line-clamp-2 text-sm text-base-content/70">{{ deck.description }}</p>
-        {% endif %}
+<article id="deck-{{ deck.id }}" class="fc-card group rounded-3xl p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-primary/10">
+  <a class="flex h-full flex-col gap-4" href="{% url 'cards:deck_detail' deck.id %}">
+    <div class="flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <h2 class="truncate text-2xl font-black tracking-tight">{{ deck.name }}</h2>
+        <p class="mt-1 text-sm fc-muted">
+          {% if deck.description %}
+            {{ deck.description|truncatechars:110 }}
+          {% else %}
+            Ready for quick review
+          {% endif %}
+        </p>
       </div>
-      <span class="badge badge-primary">{{ deck.card_count }}</span>
+      <span class="badge badge-primary badge-lg shrink-0 rounded-xl">{{ deck.card_count }}</span>
     </div>
-    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
-      <div class="rounded bg-base-200 p-2"><strong>{{ deck.unseen_count }}</strong><br>unseen</div>
-      <div class="rounded bg-base-200 p-2"><strong>{{ deck.weak_count }}</strong><br>weak</div>
-      <div class="rounded bg-base-200 p-2"><strong>{{ deck.hidden_count }}</strong><br>hidden</div>
+
+    <div class="grid grid-cols-3 gap-2 text-center text-sm">
+      <div class="fc-stat"><strong class="block text-xl">{{ deck.unseen_count }}</strong><span class="fc-muted">unseen</span></div>
+      <div class="fc-stat"><strong class="block text-xl">{{ deck.weak_count }}</strong><span class="fc-muted">weak</span></div>
+      <div class="fc-stat"><strong class="block text-xl">{{ deck.hidden_count }}</strong><span class="fc-muted">hidden</span></div>
+    </div>
+
+    <div class="mt-auto flex items-center justify-between gap-3 pt-1">
+      <span class="text-sm font-semibold text-primary">Open deck</span>
+      <span class="grid h-10 w-10 place-items-center rounded-2xl bg-primary/15 text-lg font-black text-primary transition group-hover:bg-primary group-hover:text-primary-content">›</span>
     </div>
   </a>
 </article>

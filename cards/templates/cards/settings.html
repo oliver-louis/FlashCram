@@ -3,24 +3,25 @@
 {% block title %}Settings | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex flex-col gap-5 pb-8">
-    <a class="link" href="{% url 'cards:home' %}">Back to decks</a>
-    <header>
-      <p class="text-sm font-semibold uppercase tracking-wide text-primary">FlashCram</p>
-      <h1 class="text-3xl font-bold">Settings</h1>
+  <div class="flex flex-col gap-6">
+    <a class="btn btn-ghost w-fit rounded-2xl px-2" href="{% url 'cards:home' %}">‹ Back to decks</a>
+    <header class="fc-card rounded-3xl p-5 sm:p-6">
+      <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">FlashCram</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Settings</h1>
+      <p class="mt-2 max-w-xl fc-muted">Tune review thresholds, switch theme, and manage backups.</p>
     </header>
 
-    <form method="post" class="space-y-4 rounded-lg bg-base-100 p-4 shadow-sm">
+    <form method="post" class="fc-card space-y-4 rounded-3xl p-5">
       {% csrf_token %}
       <input type="hidden" name="form" value="settings">
       <div class="form-control">
         <span class="label-text">Theme</span>
         <div class="join w-full">
-          <label class="btn join-item flex-1 {% if settings.theme == 'dark' %}btn-primary{% endif %}">
+          <label class="btn join-item h-14 flex-1 {% if settings.theme == 'dark' %}btn-primary{% endif %}">
             <input class="hidden" type="radio" name="theme" value="dark" {% if settings.theme == 'dark' %}checked{% endif %}>
             Dark
           </label>
-          <label class="btn join-item flex-1 {% if settings.theme == 'light' %}btn-primary{% endif %}">
+          <label class="btn join-item h-14 flex-1 {% if settings.theme == 'light' %}btn-primary{% endif %}">
             <input class="hidden" type="radio" name="theme" value="light" {% if settings.theme == 'light' %}checked{% endif %}>
             Light
           </label>
@@ -38,12 +39,19 @@
         <span class="label-text">Show-less random weight</span>
         {{ settings_form.show_less_weight }}
       </label>
-      <button class="btn btn-primary" type="submit">Save settings</button>
+      <label class="form-control">
+        <span class="label-text">Default new-card format</span>
+        {{ settings_form.default_content_format }}
+      </label>
+      <button class="btn btn-primary fc-tap rounded-2xl" type="submit">Save settings</button>
     </form>
 
-    <section class="space-y-4 rounded-lg bg-base-100 p-4 shadow-sm">
-      <h2 class="text-xl font-bold">Backup</h2>
-      <a class="btn btn-outline" href="{% url 'cards:export_all' %}">Export all JSON</a>
+    <section class="fc-card space-y-4 rounded-3xl p-5">
+      <div>
+        <h2 class="text-2xl font-black">Backup</h2>
+        <p class="mt-1 fc-muted">Export everything, or paste a full backup to restore/upsert decks and cards.</p>
+      </div>
+      <a class="btn btn-outline fc-tap rounded-2xl" href="{% url 'cards:export_all' %}">Export all JSON</a>
       <form method="post" class="space-y-4">
         {% csrf_token %}
         <input type="hidden" name="form" value="json_import">
@@ -52,7 +60,7 @@
           {{ import_form.backup_json }}
           {{ import_form.backup_json.errors }}
         </label>
-        <button class="btn btn-primary" type="submit">Import all JSON</button>
+        <button class="btn btn-primary fc-tap rounded-2xl" type="submit">Import all JSON</button>
       </form>
       {% if import_result %}
         <div class="alert alert-success">Imported {{ import_result.decks }} decks and {{ import_result.cards }} cards.</div>

@@ -1,40 +1,55 @@
-<section id="deck-header" class="space-y-4 rounded-lg bg-base-100 p-4 shadow-sm">
-  <div class="flex items-start justify-between gap-3">
-    <div>
-      <h1 class="text-3xl font-bold">{{ deck.name }}</h1>
-      {% if deck.description %}
-        <p class="mt-2 text-base-content/70">{{ deck.description }}</p>
-      {% endif %}
+<section id="deck-header" class="fc-card rounded-3xl p-5 sm:p-6">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div class="min-w-0">
+      <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Deck</p>
+      <h1 class="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">{{ deck.name }}</h1>
+      <p class="mt-2 max-w-2xl fc-muted">
+        {% if deck.description %}
+          {{ deck.description }}
+        {% else %}
+          Add, search, and review cards from this deck.
+        {% endif %}
+      </p>
     </div>
-    <a class="btn btn-sm btn-outline" href="{% url 'cards:deck_edit' deck.id %}" hx-get="{% url 'cards:deck_edit' deck.id %}" hx-target="#deck-header" hx-swap="outerHTML">Edit</a>
+    <a class="btn btn-outline rounded-2xl sm:btn-sm" href="{% url 'cards:deck_edit' deck.id %}" hx-get="{% url 'cards:deck_edit' deck.id %}" hx-target="#deck-header" hx-swap="outerHTML">Edit</a>
   </div>
 
-  <div class="grid grid-cols-4 gap-2 text-center text-sm">
-    <div class="rounded bg-base-200 p-2"><strong>{{ deck.card_count }}</strong><br>cards</div>
-    <div class="rounded bg-base-200 p-2"><strong>{{ deck.unseen_count }}</strong><br>unseen</div>
-    <div class="rounded bg-base-200 p-2"><strong>{{ deck.weak_count }}</strong><br>weak</div>
-    <div class="rounded bg-base-200 p-2"><strong>{{ deck.hidden_count }}</strong><br>hidden</div>
+  <div class="mt-5 grid grid-cols-3 gap-2 text-center text-sm">
+    <div class="fc-stat"><strong class="block text-2xl">{{ deck.unseen_count }}</strong><span class="fc-muted">unseen</span></div>
+    <div class="fc-stat"><strong class="block text-2xl">{{ deck.weak_count }}</strong><span class="fc-muted">weak</span></div>
+    <div class="fc-stat"><strong class="block text-2xl">{{ deck.hidden_count }}</strong><span class="fc-muted">hidden</span></div>
   </div>
 
   {% if deck.tags_used %}
-    <div class="flex flex-wrap gap-2">
+    <div class="mt-5 flex flex-wrap gap-2">
       {% for tag in deck.tags_used %}
-        <span class="badge badge-outline">{{ tag }}</span>
+        <span class="badge badge-outline rounded-xl">{{ tag }}</span>
       {% endfor %}
     </div>
   {% endif %}
 
-  <div x-data="{ confirming: false }">
-    <button class="btn btn-error btn-sm" type="button" @click="confirming = true">Delete deck</button>
+  <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between" x-data="{ confirming: false, importOpen: false }">
+    <button class="btn btn-error btn-sm w-fit rounded-2xl" type="button" @click="confirming = true">Delete deck</button>
+
+    <div class="relative self-stretch sm:self-auto">
+      <button class="btn btn-outline fc-tap w-full rounded-2xl sm:w-auto" type="button" @click="importOpen = !importOpen" @click.outside="importOpen = false" aria-haspopup="true">
+        Import / Export
+      </button>
+      <div class="fc-card absolute bottom-full right-0 z-20 mb-2 w-full min-w-56 rounded-3xl p-2 shadow-xl sm:top-full sm:bottom-auto sm:mt-2 sm:mb-0 sm:w-64" x-cloak x-show="importOpen">
+        <a class="btn btn-ghost fc-tap w-full justify-start rounded-2xl" href="{% url 'cards:bulk_import' %}">Bulk import cards</a>
+        <a class="btn btn-ghost fc-tap w-full justify-start rounded-2xl" href="{% url 'cards:export_deck' deck.id %}">Export this deck</a>
+      </div>
+    </div>
+
     <div class="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" x-cloak x-show="confirming">
-      <div class="w-full max-w-sm rounded-lg bg-base-100 p-5 shadow-xl">
-        <h2 class="text-lg font-bold">Delete deck?</h2>
-        <p class="mt-2 text-sm text-base-content/70">This also deletes every card in this deck.</p>
+      <div class="fc-card w-full max-w-sm rounded-3xl p-5 shadow-xl">
+        <h2 class="text-xl font-black">Delete deck?</h2>
+        <p class="mt-2 text-sm fc-muted">This also deletes every card in this deck.</p>
         <div class="mt-5 grid grid-cols-2 gap-3">
-          <button class="btn btn-ghost" type="button" @click="confirming = false">Cancel</button>
+          <button class="btn btn-ghost rounded-2xl" type="button" @click="confirming = false">Cancel</button>
           <form method="post" action="{% url 'cards:deck_delete' deck.id %}">
             {% csrf_token %}
-            <button class="btn btn-error w-full" type="submit" hx-post="{% url 'cards:deck_delete' deck.id %}">Delete</button>
+            <button class="btn btn-error w-full rounded-2xl" type="submit" hx-post="{% url 'cards:deck_delete' deck.id %}">Delete</button>
           </form>
         </div>
       </div>

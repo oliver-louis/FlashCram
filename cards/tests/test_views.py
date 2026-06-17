@@ -1,5 +1,7 @@
+from django.contrib.staticfiles import finders
 from django.test import TestCase
 from django.urls import reverse
+from pathlib import Path
 
 from cards.models import Card, Deck, Settings
 from cards.services import REVIEW_SESSION_KEY
@@ -81,6 +83,16 @@ class CardCrudViewTests(TestCase):
         card = Card.objects.get()
         self.assertEqual(card.tags, ["shell", "grep"])
         self.assertEqual(card.content_format, Card.ContentFormat.PLAINTEXT)
+
+    def test_card_create_form_suggests_existing_deck_tags(self):
+        Card.objects.create(deck=self.deck, front="Existing", back="Back", tags=["linux", "shell"])
+
+        response = self.client.get(reverse("cards:card_create", kwargs={"deck_id": self.deck.id}))
+
+        self.assertContains(response, "Suggested tags from this deck")
+        self.assertContains(response, 'data-tag="linux"')
+        self.assertContains(response, 'data-tag="shell"')
+        self.assertContains(response, "Use commas or spaces for multiple tags.")
 
     def test_card_edit_htmx_returns_row_fragment(self):
         card = Card.objects.create(deck=self.deck, front="Old", back="Back")
@@ -429,3 +441,45 @@ class PhaseThreePolishTests(TestCase):
             self.assertEqual(Settings.objects.get().theme, theme)
             home = self.client.get(reverse("cards:home"))
             self.assertContains(home, f'data-theme="{theme}"')
+
+
+class UiAssetTests(TestCase):
+    def test_nav_uses_theme_aware_brand_and_mobile_menu(self):
+        response = self.client.get(reverse("cards:home"))
+
+        self.assertContains(response, "fc-brand-text")
+        self.assertContains(response, 'aria-label="Open navigation menu"')
+        self.assertNotContains(response, "btm-nav")
+
+    def test_core_static_assets_are_available_for_local_runserver(self):
+        for path in [
+            "css/app.css",
+            "vendor/htmx.min.js",
+            "vendor/alpine.min.js",
+            "vendor/katex/katex.min.css",
+            "vendor/katex/katex.min.js",
+            "vendor/katex/auto-render.min.js",
+            "vendor/mathlive/mathlive.min.mjs",
+            "vendor/pygments/dark.css",
+            "vendor/pygments/light.css",
+            "icons/favicon.png",
+        ]:
+            with self.subTest(path=path):
+                self.assertIsNotNone(finders.find(path), path)
+
+    def test_compiled_css_contains_brand_and_contrast_tokens(self):
+        css_path = finders.find("css/app.css")
+        self.assertIsNotNone(css_path)
+        css = Path(css_path).read_text()
+
+        for token in ["#005aff", "#00c6ff", "--fc-text:#102033", "--fc-text:#f4f8ff", ".fc-brand-text{color:#fff}", "[data-theme=light] .fc-brand-text{color:#000}"]:
+            with self.subTest(token=token):
+                self.assertIn(token, css)
+
+    def test_base_template_links_compiled_assets_and_brand_icon(self):
+        response = self.client.get(reverse("cards:home"))
+
+        self.assertContains(response, "css/app.css")
+        self.assertContains(response, "vendor/htmx.min.js")
+        self.assertContains(response, "vendor/alpine.min.js")
+        self.assertContains(response, "icons/favicon")

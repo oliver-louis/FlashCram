@@ -1,10 +1,76 @@
-<section id="{% if card %}card-{{ card.id }}{% else %}card-form-panel{% endif %}" class="rounded-lg bg-base-100 p-4 shadow-sm">
-  <h2 class="mb-4 text-xl font-bold">{{ title }}</h2>
-  <form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="{% if card %}#card-{{ card.id }}{% else %}#card-list{% endif %}" hx-swap="{% if card %}outerHTML{% else %}afterbegin{% endif %}" class="space-y-4">
+{% load card_rendering %}
+<section
+  id="{% if card %}card-{{ card.id }}{% else %}card-form-panel{% endif %}"
+  class="fc-card rounded-3xl p-5"
+  x-data="{
+    format: '{{ form.content_format.value|default:"plaintext" }}',
+    focusedFace: 'front',
+    equationMode: 'inline',
+    equationLatex: '',
+    imageName: '{% if card and card.image %}Current image{% endif %}',
+    addTag(tag) {
+      const input = this.$refs.tagsInput;
+      const tags = input.value.split(/[\s,]+/).map(function (value) { return value.trim().toLowerCase(); }).filter(Boolean);
+      if (!tags.includes(tag)) tags.push(tag);
+      input.value = tags.join(', ');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+    },
+    insertEquation() {
+      const target = this.focusedFace === 'back' ? this.$refs.backInput : this.$refs.frontInput;
+      const latex = this.equationLatex || this.$refs.mathField?.value || '';
+      if (!latex.trim()) return;
+      const wrapped = this.equationMode === 'display' ? '\\\\[' + latex + '\\\\]' : '\\\\(' + latex + '\\\\)';
+      const start = target.selectionStart || 0;
+      const end = target.selectionEnd || 0;
+      target.value = target.value.slice(0, start) + wrapped + target.value.slice(end);
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.focus();
+      target.selectionStart = target.selectionEnd = start + wrapped.length;
+    },
+    assignImageFiles(files) {
+      if (!files || !files.length) return;
+      const input = this.$refs.imageInput;
+      const transfer = new DataTransfer();
+      transfer.items.add(files[0]);
+      input.files = transfer.files;
+      this.imageName = files[0].name || 'Pasted image';
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    onDrop(event) {
+      event.preventDefault();
+      this.assignImageFiles(event.dataTransfer.files);
+    },
+    onPaste(event) {
+      const files = Array.from(event.clipboardData?.files || []).filter((file) => file.type.startsWith('image/'));
+      if (files.length) this.assignImageFiles(files);
+    }
+  }"
+  @paste.window="onPaste($event)"
+>
+  <h2 class="mb-4 text-2xl font-black">{{ title }}</h2>
+  <form method="post" action="{{ action_url }}" enctype="multipart/form-data" hx-encoding="multipart/form-data" hx-post="{{ action_url }}" hx-target="{% if card %}#card-{{ card.id }}{% else %}#card-list{% endif %}" hx-swap="{% if card %}outerHTML{% else %}afterbegin{% endif %}" class="space-y-4">
     {% csrf_token %}
     {% if form.non_field_errors %}
       <div class="alert alert-error">{{ form.non_field_errors }}</div>
     {% endif %}
+    {% if card %}
+      <input type="hidden" name="card_id" value="{{ card.id }}">
+    {% endif %}
+    <label class="form-control">
+      <span class="label-text">Content format</span>
+      <div class="join w-full">
+        <label class="btn join-item h-14 flex-1" :class="format === 'plaintext' ? 'btn-primary' : 'btn-outline'">
+          <input class="hidden" type="radio" name="content_format" value="plaintext" x-model="format">
+          Plain text
+        </label>
+        <label class="btn join-item h-14 flex-1" :class="format === 'markdown' ? 'btn-primary' : 'btn-outline'">
+          <input class="hidden" type="radio" name="content_format" value="markdown" x-model="format">
+          Markdown
+        </label>
+      </div>
+      {{ form.content_format.errors }}
+    </label>
     <label class="form-control">
       <span class="label-text">Front</span>
       {{ form.front }}
@@ -15,19 +81,98 @@
       {{ form.back }}
       {{ form.back.errors }}
     </label>
+    <div class="grid gap-3 md:grid-cols-2" x-cloak x-show="format === 'markdown'">
+      <div class="rounded-2xl border border-base-content/10 bg-base-200/70 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <p class="font-semibold">Front preview</p>
+          <button
+            class="btn btn-outline btn-sm rounded-2xl"
+            type="button"
+            hx-post="{% url 'cards:card_preview' deck.id %}"
+            hx-target="#front-preview"
+            hx-swap="outerHTML"
+            hx-vals='js:{content: document.getElementById("id_front").value, content_format: "markdown", face: "front"{% if card %}, card_id: "{{ card.id }}"{% endif %}}'
+          >Preview</button>
+        </div>
+        <div id="front-preview" class="mt-3 rounded-2xl border border-base-content/10 bg-base-100/60 p-4 fc-muted">Preview front markdown here.</div>
+      </div>
+      <div class="rounded-2xl border border-base-content/10 bg-base-200/70 p-3">
+        <div class="flex items-center justify-between gap-2">
+          <p class="font-semibold">Back preview</p>
+          <button
+            class="btn btn-outline btn-sm rounded-2xl"
+            type="button"
+            hx-post="{% url 'cards:card_preview' deck.id %}"
+            hx-target="#back-preview"
+            hx-swap="outerHTML"
+            hx-vals='js:{content: document.getElementById("id_back").value, content_format: "markdown", face: "back"{% if card %}, card_id: "{{ card.id }}"{% endif %}}'
+          >Preview</button>
+        </div>
+        <div id="back-preview" class="mt-3 rounded-2xl border border-base-content/10 bg-base-100/60 p-4 fc-muted">Preview back markdown here.</div>
+      </div>
+      <div class="md:col-span-2 rounded-2xl border border-base-content/10 bg-base-200/70 p-3">
+        <p class="font-semibold">Insert equation</p>
+        <div class="mt-3 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
+          <math-field class="input input-bordered flex min-h-14 w-full items-center rounded-2xl bg-base-100 px-4" x-ref="mathField" @input="equationLatex = $event.target.value"></math-field>
+          <select class="select select-bordered h-14 rounded-2xl" x-model="equationMode">
+            <option value="inline">Inline</option>
+            <option value="display">Display</option>
+          </select>
+          <button class="btn btn-primary fc-tap rounded-2xl" type="button" @click="insertEquation()">Insert</button>
+        </div>
+      </div>
+    </div>
     <label class="form-control">
       <span class="label-text">Tags</span>
       {{ form.tags_text }}
+      <span class="label-text-alt fc-muted">Use commas or spaces for multiple tags.</span>
       {{ form.tags_text.errors }}
     </label>
+    {% if deck.tags_used %}
+      <div class="rounded-2xl border border-base-content/10 bg-base-200/80 p-3">
+        <p class="text-sm font-semibold fc-muted">Suggested tags from this deck</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          {% for tag in deck.tags_used %}
+            <button class="btn btn-outline btn-sm rounded-2xl" type="button" data-tag="{{ tag }}" @click="addTag($el.dataset.tag)">#{{ tag }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
     <label class="form-control">
       <span class="label-text">Status</span>
       {{ form.status }}
       {{ form.status.errors }}
     </label>
-    <div class="flex gap-2">
-      <button class="btn btn-primary" type="submit">{{ submit_label }}</button>
-      <a class="btn btn-ghost" href="{% url 'cards:deck_detail' deck.id %}">Cancel</a>
+    <div class="rounded-2xl border border-base-content/10 bg-base-200/70 p-3" @dragover.prevent @drop="onDrop($event)">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <label class="form-control flex-1">
+          <span class="label-text">Optional image</span>
+          {{ form.image_upload }}
+          {{ form.image_upload.errors }}
+        </label>
+        <label class="form-control sm:w-44">
+          <span class="label-text">Show image on</span>
+          {{ form.image_face }}
+          {{ form.image_face.errors }}
+        </label>
+      </div>
+      <p class="mt-2 text-sm fc-muted">Browse, drop an image here, or paste a screenshot. PNG, JPEG, WEBP, and GIF are supported.</p>
+      <p class="mt-2 text-sm font-semibold" x-show="imageName" x-text="imageName"></p>
+      {% if card and card.image %}
+        <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+          {% with current_image=card|image_data_uri:card.image_face %}
+            <img class="h-24 w-24 rounded-2xl object-cover" src="{{ current_image }}" alt="Current card image">
+          {% endwith %}
+          <label class="btn btn-outline rounded-2xl">
+            {{ form.remove_image }}
+            Remove current image
+          </label>
+        </div>
+      {% endif %}
+    </div>
+    <div class="grid grid-cols-2 gap-3 sm:flex">
+      <button class="btn btn-primary fc-tap rounded-2xl" type="submit">{{ submit_label }}</button>
+      <a class="btn btn-ghost fc-tap rounded-2xl" href="{% url 'cards:deck_detail' deck.id %}">Cancel</a>
     </div>
   </form>
 </section>

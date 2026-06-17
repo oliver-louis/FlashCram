@@ -12,6 +12,7 @@ urlpatterns = [
     path("decks/<uuid:deck_id>/edit/", views.deck_edit, name="deck_edit"),
     path("decks/<uuid:deck_id>/delete/", views.deck_delete, name="deck_delete"),
     path("decks/<uuid:deck_id>/cards/new/", views.card_create, name="card_create"),
+    path("decks/<uuid:deck_id>/cards/preview/", views.card_preview, name="card_preview"),
     path(
         "decks/<uuid:deck_id>/cards/<uuid:card_id>/edit/",
         views.card_edit,

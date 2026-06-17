@@ -1,7 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "build:css": "tailwindcss -i ./static_src/input.css -o ./static/css/app.css --minify"
+    "build:css": "tailwindcss -i ./static_src/input.css -o ./static/css/app.css --minify",
+    "build:vendor": "mkdir -p static/vendor && rm -rf static/vendor/katex static/vendor/mathlive && mkdir -p static/vendor/katex static/vendor/mathlive && cp node_modules/htmx.org/dist/htmx.min.js static/vendor/htmx.min.js && cp node_modules/alpinejs/dist/cdn.min.js static/vendor/alpine.min.js && cp node_modules/katex/dist/katex.min.css static/vendor/katex/katex.min.css && cp node_modules/katex/dist/katex.min.js static/vendor/katex/katex.min.js && cp node_modules/katex/dist/contrib/auto-render.min.js static/vendor/katex/auto-render.min.js && cp -R node_modules/katex/dist/fonts static/vendor/katex/fonts && cp node_modules/mathlive/mathlive.min.mjs static/vendor/mathlive/mathlive.min.mjs && cp node_modules/mathlive/mathlive-static.css static/vendor/mathlive/mathlive-static.css && cp node_modules/mathlive/mathlive-fonts.css static/vendor/mathlive/mathlive-fonts.css && cp -R node_modules/mathlive/fonts static/vendor/mathlive/fonts",
+    "build:assets": "mkdir -p static/css static/vendor && npm run build:css && npm run build:vendor"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.0",
@@ -10,6 +12,8 @@
   },
   "dependencies": {
     "alpinejs": "^3.14.0",
-    "htmx.org": "^2.0.0"
+    "htmx.org": "^2.0.0",
+    "katex": "^0.16.11",
+    "mathlive": "^0.105.2"
   }
 }

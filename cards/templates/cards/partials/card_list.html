@@ -2,13 +2,13 @@
   {% for card in cards %}
     {% include "cards/partials/card_row.html" %}
   {% empty %}
-    <div id="{% if is_filtered %}no-matching-cards{% else %}empty-card-list{% endif %}" class="rounded-lg border border-dashed border-base-300 bg-base-100 p-6 text-center">
+    <div id="{% if is_filtered %}no-matching-cards{% else %}empty-card-list{% endif %}" class="fc-card rounded-3xl border-dashed p-8 text-center">
       {% if is_filtered %}
-        <h3 class="text-lg font-semibold">No matching cards</h3>
-        <p class="mt-2 text-base-content/70">Try a different search or tag filter.</p>
+        <h3 class="text-xl font-black">No matching cards</h3>
+        <p class="mx-auto mt-2 max-w-sm fc-muted">Try a different search or tag filter.</p>
       {% else %}
-        <h3 class="text-lg font-semibold">No cards yet</h3>
-        <p class="mt-2 text-base-content/70">Add a front and back to make this deck reviewable.</p>
+        <h3 class="text-xl font-black">No cards yet</h3>
+        <p class="mx-auto mt-2 max-w-sm fc-muted">Add a front and back to make this deck reviewable.</p>
       {% endif %}
     </div>
   {% endfor %}

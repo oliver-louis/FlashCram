@@ -6,7 +6,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .forms import BulkImportForm, CardForm, DeckForm, JsonImportForm, SettingsForm
-from .models import Deck
+from .models import Card, Deck
+from .rendering import RenderedFace, render_card_face, render_content
 from .services import (
     REVIEW_ALL_MODE,
     REVIEW_HIDDEN_MODE,
@@ -137,7 +138,7 @@ def deck_delete(request, deck_id):
 def card_create(request, deck_id):
     deck = get_deck(deck_id)
     if request.method == "POST":
-        form = CardForm(request.POST)
+        form = CardForm(request.POST, request.FILES)
         if form.is_valid():
             card = form.save(commit=False)
             card.deck = deck
@@ -172,7 +173,7 @@ def card_edit(request, deck_id, card_id):
     deck = get_deck(deck_id)
     card = get_card_for_deck(deck, card_id)
     if request.method == "POST":
-        form = CardForm(request.POST, instance=card)
+        form = CardForm(request.POST, request.FILES, instance=card)
         if form.is_valid():
             card = form.save()
             if request.htmx:
@@ -196,6 +197,33 @@ def card_edit(request, deck_id, card_id):
             ),
         },
         status=422 if request.method == "POST" else 200,
+    )
+
+
+@require_POST
+def card_preview(request, deck_id):
+    deck = get_deck(deck_id)
+    content = request.POST.get("content", "")
+    content_format = request.POST.get("content_format", Card.ContentFormat.PLAINTEXT)
+    face = request.POST.get("face", Card.ImageFace.FRONT)
+    card = None
+    card_id = request.POST.get("card_id")
+    if card_id:
+        card = get_card_for_deck(deck, card_id)
+    image_data_uri = ""
+    image_alt = ""
+    if card and card.image_face == face:
+        image_data_uri = render_card_face(card, face).image_data_uri
+        image_alt = f"{card.get_image_face_display()} image"
+    rendered_face = RenderedFace(
+        html=render_content(content, content_format),
+        image_data_uri=image_data_uri,
+        image_alt=image_alt,
+    )
+    return render(
+        request,
+        "cards/partials/card_preview.html",
+        {"rendered_face": rendered_face, "target_id": f"{face}-preview"},
     )
 
 
@@ -275,6 +303,8 @@ def review_context(session):
     return {
         "deck": deck,
         "card": card,
+        "rendered_front": render_card_face(card, Card.ImageFace.FRONT),
+        "rendered_back": render_card_face(card, Card.ImageFace.BACK),
         "session": session,
         "progress_current": progress_current,
         "progress_total": progress_total,

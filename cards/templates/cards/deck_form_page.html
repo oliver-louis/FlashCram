@@ -3,8 +3,8 @@
 {% block title %}{{ title }} | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex min-h-screen flex-col gap-5 pb-8">
-    <a class="link" href="{% url 'cards:home' %}">Back to decks</a>
+  <div class="flex flex-col gap-5">
+    <a class="btn btn-ghost w-fit rounded-2xl px-2" href="{% url 'cards:home' %}">‹ Back to decks</a>
     {% include "cards/partials/deck_form.html" %}
   </div>
 {% endblock %}

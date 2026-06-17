@@ -1,5 +1,5 @@
-<section class="rounded-lg bg-base-100 p-4 shadow-sm">
-  <h2 class="mb-4 text-xl font-bold">{{ title }}</h2>
+<section class="fc-card rounded-3xl p-5">
+  <h2 class="mb-4 text-2xl font-black">{{ title }}</h2>
   <form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="{% if deck %}#deck-header{% else %}#deck-list{% endif %}" hx-swap="{% if deck %}outerHTML{% else %}afterbegin{% endif %}" class="space-y-4">
     {% csrf_token %}
     {% if form.non_field_errors %}
@@ -15,9 +15,9 @@
       {{ form.description }}
       {{ form.description.errors }}
     </label>
-    <div class="flex gap-2">
-      <button class="btn btn-primary" type="submit">{{ submit_label }}</button>
-      <a class="btn btn-ghost" href="{% if deck %}{% url 'cards:deck_detail' deck.id %}{% else %}{% url 'cards:home' %}{% endif %}">Cancel</a>
+    <div class="grid grid-cols-2 gap-3 sm:flex">
+      <button class="btn btn-primary fc-tap rounded-2xl" type="submit">{{ submit_label }}</button>
+      <a class="btn btn-ghost fc-tap rounded-2xl" href="{% if deck %}{% url 'cards:deck_detail' deck.id %}{% else %}{% url 'cards:home' %}{% endif %}">Cancel</a>
     </div>
   </form>
 </section>

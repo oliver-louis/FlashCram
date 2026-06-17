@@ -1,4 +1,202 @@
 @import "tailwindcss";
+@source "../templates";
+@source "../cards/templates";
+@source "../cards/forms.py";
 @plugin "daisyui" {
   themes: dark --default, light;
+}
+
+:root,
+[data-theme="dark"] {
+  --color-primary: #005aff;
+  --color-primary-content: #ffffff;
+  --color-secondary: #00c6ff;
+  --color-secondary-content: #001525;
+  --color-accent: #00c6ff;
+  --color-accent-content: #001525;
+  --color-base-100: #151923;
+  --color-base-200: #10131b;
+  --color-base-300: #080a10;
+  --color-base-content: #f4f8ff;
+  --color-neutral: #20283a;
+  --color-neutral-content: #f4f8ff;
+  --fc-page: #080a10;
+  --fc-surface: #151923;
+  --fc-surface-raised: #1b2130;
+  --fc-surface-soft: #202839;
+  --fc-text: #f4f8ff;
+  --fc-muted-text: #a9b7ca;
+  --fc-border: color-mix(in srgb, #f4f8ff 10%, transparent);
+  --fc-shadow: color-mix(in srgb, black 34%, transparent);
+}
+
+[data-theme="light"] {
+  --color-primary: #005aff;
+  --color-primary-content: #ffffff;
+  --color-secondary: #00c6ff;
+  --color-secondary-content: #001525;
+  --color-accent: #00c6ff;
+  --color-accent-content: #001525;
+  --color-base-100: #ffffff;
+  --color-base-200: #f2f7ff;
+  --color-base-300: #e8f1ff;
+  --color-base-content: #102033;
+  --color-neutral: #d8e5f8;
+  --color-neutral-content: #102033;
+  --fc-page: #f5f9ff;
+  --fc-surface: #ffffff;
+  --fc-surface-raised: #f7fbff;
+  --fc-surface-soft: #edf5ff;
+  --fc-text: #102033;
+  --fc-muted-text: #5a6678;
+  --fc-border: color-mix(in srgb, #005aff 14%, #102033 10%);
+  --fc-shadow: color-mix(in srgb, #005aff 14%, transparent);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  html[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  body {
+    min-height: 100vh;
+    color: var(--fc-text);
+    background:
+      radial-gradient(circle at top left, color-mix(in srgb, #005aff 18%, transparent), transparent 34rem),
+      radial-gradient(circle at bottom right, color-mix(in srgb, #00c6ff 14%, transparent), transparent 28rem),
+      var(--fc-page);
+  }
+}
+
+@layer components {
+  .fc-shell {
+    min-height: calc(100vh - 4rem);
+    padding-bottom: 2rem;
+  }
+
+  .fc-brand-text {
+    color: #ffffff;
+  }
+
+  [data-theme="light"] .fc-brand-text {
+    color: #000000;
+  }
+
+  .fc-card {
+    color: var(--fc-text);
+    border: 1px solid var(--fc-border);
+    background: var(--fc-surface);
+    box-shadow: 0 16px 40px var(--fc-shadow);
+  }
+
+  .fc-glass {
+    color: var(--fc-text);
+    border: 1px solid var(--fc-border);
+    background: color-mix(in srgb, var(--fc-surface) 84%, transparent);
+    backdrop-filter: blur(18px);
+  }
+
+  .fc-muted {
+    color: var(--fc-muted-text);
+  }
+
+  .fc-stat {
+    color: var(--fc-text);
+    border-radius: 0.9rem;
+    background: var(--fc-surface-soft);
+    padding: 0.85rem;
+  }
+
+  .fc-tap {
+    min-height: 3.25rem;
+  }
+
+  .fc-review-card {
+    color: var(--fc-text);
+    min-height: clamp(22rem, 58vh, 36rem);
+    border: 1px solid color-mix(in srgb, #005aff 24%, var(--fc-border));
+    background:
+      linear-gradient(145deg, var(--fc-surface), var(--fc-surface-raised)),
+      var(--fc-surface);
+    box-shadow: 0 24px 70px var(--fc-shadow);
+  }
+
+  .fc-rendered-content {
+    color: inherit;
+    overflow-wrap: anywhere;
+  }
+
+  .fc-rendered-content :where(p, ul, ol, blockquote, pre, table) {
+    margin-top: 0.85rem;
+  }
+
+  .fc-rendered-content :where(p:first-child, ul:first-child, ol:first-child, blockquote:first-child, pre:first-child, table:first-child) {
+    margin-top: 0;
+  }
+
+  .fc-rendered-content :where(pre) {
+    max-width: 100%;
+    overflow-x: auto;
+    border-radius: 1rem;
+    border: 1px solid var(--fc-border);
+    background: var(--fc-surface-soft);
+    padding: 1rem;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+
+  .fc-rendered-content :where(code) {
+    border-radius: 0.45rem;
+    background: var(--fc-surface-soft);
+    padding: 0.12rem 0.32rem;
+    font-size: 0.92em;
+  }
+
+  .fc-rendered-content :where(pre code) {
+    background: transparent;
+    padding: 0;
+  }
+
+  .fc-rendered-content :where(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+  }
+
+  .fc-rendered-content :where(th, td) {
+    border: 1px solid var(--fc-border);
+    padding: 0.45rem 0.65rem;
+  }
+
+  math-field {
+    color: var(--fc-text);
+  }
+
+  .fc-bottom-actions {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom));
+    color: var(--fc-text);
+    border-top: 1px solid var(--fc-border);
+    background: color-mix(in srgb, var(--fc-page) 92%, transparent);
+    backdrop-filter: blur(18px);
+  }
+
+  @media (min-width: 768px) {
+    .fc-shell {
+      padding-bottom: 2rem;
+    }
+
+    .fc-bottom-actions {
+      margin-left: 0;
+      margin-right: 0;
+      border-radius: 1rem;
+      border: 1px solid var(--fc-border);
+    }
+  }
 }
