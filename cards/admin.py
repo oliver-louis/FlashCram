@@ -15,6 +15,7 @@ class CardInline(admin.TabularInline):
         "times_correct",
         "times_wrong",
         "status",
+        "is_marked",
         "image_mime",
         "image_face",
     )
@@ -33,6 +34,7 @@ class CardAdmin(admin.ModelAdmin):
         "front",
         "deck",
         "status",
+        "is_marked",
         "times_reviewed",
         "times_correct",
         "times_wrong",
@@ -40,7 +42,7 @@ class CardAdmin(admin.ModelAdmin):
         "image_face",
         "created_at",
     )
-    list_filter = ("status", "content_format", "deck")
+    list_filter = ("status", "is_marked", "content_format", "deck")
     search_fields = ("front", "back", "tags")
 
 

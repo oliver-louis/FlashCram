@@ -184,12 +184,14 @@ class JsonBackupTests(TestCase):
             times_correct=2,
             times_wrong=1,
             status=Card.Status.LESS,
+            is_marked=True,
         )
         payload = export_backup()
 
         self.assertEqual(payload["version"], 1)
         self.assertEqual(payload["decks"][0]["id"], str(deck.id))
         self.assertEqual(payload["decks"][0]["cards"][0]["contentFormat"], "plaintext")
+        self.assertTrue(payload["decks"][0]["cards"][0]["isMarked"])
 
         Deck.objects.all().delete()
         result = import_backup(json.dumps(payload))
@@ -201,6 +203,7 @@ class JsonBackupTests(TestCase):
         self.assertEqual(restored_card.tags, ["shell"])
         self.assertEqual(restored_card.times_wrong, 1)
         self.assertEqual(restored_card.status, Card.Status.LESS)
+        self.assertTrue(restored_card.is_marked)
 
         import_backup(payload)
         self.assertEqual(Deck.objects.count(), 1)

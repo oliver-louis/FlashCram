@@ -36,8 +36,17 @@ urlpatterns = [
     ),
     path("decks/<uuid:deck_id>/export/", views.export_deck, name="export_deck"),
     path("bulk-import/", views.bulk_import, name="bulk_import"),
+    path("marked/", views.marked_cards, name="marked_cards"),
     path("settings/", views.settings_view, name="settings"),
     path("export/", views.export_all, name="export_all"),
+    path(
+        "cards/<uuid:deck_id>/<uuid:card_id>/unmark/",
+        views.card_unmark,
+        name="card_unmark",
+    ),
+    path("review/mark/", views.review_mark, name="review_mark"),
+    path("review/edit/", views.review_edit, name="review_edit"),
+    path("review/delete/", views.review_delete, name="review_delete"),
     path("review/grade/<str:action>/", views.review_grade, name="review_grade"),
     path("review/undo/", views.review_undo, name="review_undo"),
 ]

@@ -169,6 +169,20 @@ class ReviewAllViewTests(TestCase):
         self.assertEqual(session["queue"], [str(first.id), str(second.id)])
         self.assertContains(response, "first")
 
+    def test_normal_review_uses_primary_correct_incorrect_and_action_menu(self):
+        self.make_card("first")
+
+        response = self.start_review()
+
+        self.assertContains(response, "Incorrect")
+        self.assertContains(response, "Correct")
+        self.assertContains(response, "More review actions")
+        self.assertContains(response, "Show Less")
+        self.assertContains(response, "Mark")
+        self.assertContains(response, "Edit")
+        self.assertNotContains(response, ">Wrong</button>")
+        self.assertNotContains(response, ">Got it</button>")
+
     def test_each_grading_action_applies_expected_delta(self):
         expectations = {
             "got_it": {"times_reviewed": 1, "times_correct": 1, "times_wrong": 0, "status": Card.Status.NORMAL},
@@ -251,6 +265,68 @@ class ReviewAllViewTests(TestCase):
         self.assertEqual(session["cursor"], 0)
         self.assertContains(undo, "first")
 
+    def test_mark_marks_current_card_without_advancing_or_counter_changes(self):
+        card = self.make_card("first")
+        self.start_review()
+
+        response = self.client.post(reverse("cards:review_mark"), **HTMX)
+
+        card.refresh_from_db()
+        session = self.client.session[REVIEW_SESSION_KEY]
+        self.assertTrue(card.is_marked)
+        self.assertEqual(card.times_reviewed, 0)
+        self.assertEqual(session["cursor"], 0)
+        self.assertContains(response, "Marked")
+        self.assertContains(response, "first")
+
+    def test_review_edit_updates_card_and_returns_to_session(self):
+        card = self.make_card("old", tags=["before"])
+        self.start_review()
+
+        edit = self.client.get(reverse("cards:review_edit"), **HTMX)
+        self.assertContains(edit, "Edit current card")
+        self.assertContains(edit, "Delete")
+
+        response = self.client.post(
+            reverse("cards:review_edit"),
+            {
+                "front": "new front",
+                "back": "new back",
+                "tags_text": "after",
+                "content_format": Card.ContentFormat.PLAINTEXT,
+                "status": Card.Status.NORMAL,
+                "image_face": Card.ImageFace.BACK,
+            },
+            **HTMX,
+        )
+
+        card.refresh_from_db()
+        session = self.client.session[REVIEW_SESSION_KEY]
+        self.assertEqual(card.front, "new front")
+        self.assertEqual(card.back, "new back")
+        self.assertEqual(card.tags, ["after"])
+        self.assertEqual(session["cursor"], 0)
+        self.assertContains(response, "new front")
+
+    def test_review_delete_removes_current_and_future_queue_occurrences(self):
+        first = self.make_card("first")
+        second = self.make_card("second")
+        self.start_review()
+        session = self.client.session
+        review = session[REVIEW_SESSION_KEY]
+        review["queue"] = [str(first.id), str(second.id), str(first.id)]
+        review["cursor"] = 0
+        session[REVIEW_SESSION_KEY] = review
+        session.save()
+
+        response = self.client.post(reverse("cards:review_delete"), **HTMX)
+
+        self.assertFalse(Card.objects.filter(pk=first.pk).exists())
+        review = self.client.session[REVIEW_SESSION_KEY]
+        self.assertEqual(review["queue"], [str(second.id)])
+        self.assertEqual(review["cursor"], 0)
+        self.assertContains(response, "second")
+
     def test_session_advances_to_summary_and_clears(self):
         first = self.make_card("first")
         second = self.make_card("second")
@@ -278,6 +354,8 @@ class ReviewAllViewTests(TestCase):
         self.assertEqual(session["queue"], [str(first.id), str(second.id)])
         self.assertContains(response, "Hidden cards")
         self.assertContains(response, "Restore")
+        self.assertNotContains(response, "Incorrect")
+        self.assertNotContains(response, "Correct")
 
         response = self.grade("restore")
         first.refresh_from_db()
@@ -294,6 +372,26 @@ class ReviewAllViewTests(TestCase):
         self.grade("keep_hidden")
         first.refresh_from_db()
         self.assertEqual(first.status, Card.Status.HIDDEN)
+
+    def test_marked_page_lists_and_unmarks_marked_cards(self):
+        marked = self.make_card("marked", is_marked=True)
+        self.make_card("plain", is_marked=False)
+
+        response = self.client.get(reverse("cards:marked_cards"))
+
+        self.assertContains(response, "Marked cards")
+        self.assertContains(response, "marked")
+        self.assertNotContains(response, "plain")
+
+        unmark = self.client.post(
+            reverse("cards:card_unmark", kwargs={"deck_id": self.deck.id, "card_id": marked.id}),
+            **{"HTTP_HX_REQUEST": "true", "HTTP_HX_TARGET": f"marked-card-{marked.id}"},
+        )
+
+        marked.refresh_from_db()
+        self.assertEqual(unmark.status_code, 200)
+        self.assertEqual(unmark.content, b"")
+        self.assertFalse(marked.is_marked)
 
 
 class PhaseTwoViewTests(TestCase):

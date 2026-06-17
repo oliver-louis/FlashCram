@@ -67,6 +67,7 @@
         </a>
         <div class="hidden items-center gap-2 md:flex">
           <a class="btn btn-ghost btn-sm" href="{% url 'cards:home' %}">Decks</a>
+          <a class="btn btn-ghost btn-sm" href="{% url 'cards:marked_cards' %}">Marked</a>
           <a class="btn btn-ghost btn-sm" href="{% url 'cards:bulk_import' %}">Import</a>
           <a class="btn btn-ghost btn-sm" href="{% url 'cards:settings' %}">Settings</a>
         </div>
@@ -80,6 +81,7 @@
           </button>
           <div class="fc-card absolute right-0 top-full z-50 mt-2 w-52 rounded-3xl p-2 shadow-xl" x-cloak x-show="open" x-transition @click.outside="open = false">
             <a class="btn btn-ghost fc-tap w-full justify-start rounded-2xl" href="{% url 'cards:home' %}">Decks</a>
+            <a class="btn btn-ghost fc-tap w-full justify-start rounded-2xl" href="{% url 'cards:marked_cards' %}">Marked</a>
             <a class="btn btn-ghost fc-tap w-full justify-start rounded-2xl" href="{% url 'cards:bulk_import' %}">Import</a>
             <a class="btn btn-ghost fc-tap w-full justify-start rounded-2xl" href="{% url 'cards:settings' %}">Settings</a>
           </div>

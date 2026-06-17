@@ -18,11 +18,14 @@
     <progress class="progress progress-primary mt-4 h-2" value="{{ progress_current }}" max="{{ progress_total }}"></progress>
   </header>
 
-  <div x-data="{ revealed: false }" class="flex flex-1 flex-col gap-4">
+  <div x-data="{ revealed: false, menuOpen: false }" class="flex flex-1 flex-col gap-4">
     <div role="button" tabindex="0" class="fc-review-card flex flex-1 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]" @click="revealed = !revealed" @keydown.enter.prevent="revealed = !revealed" @keydown.space.prevent="revealed = !revealed">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
         <div class="flex items-center gap-2">
+          {% if card.is_marked %}
+            <span class="badge badge-secondary rounded-xl">Marked</span>
+          {% endif %}
           <span class="badge badge-outline rounded-xl" x-text="revealed ? 'Tap to flip back' : 'Tap to reveal'"></span>
           <form method="post" action="{% url 'cards:review_grade' 'skip' %}" @click.stop>
             {% csrf_token %}
@@ -55,25 +58,33 @@
           </form>
         </div>
       {% else %}
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-[1fr_auto_1fr] gap-3">
           <form method="post" action="{% url 'cards:review_grade' 'wrong' %}">
             {% csrf_token %}
-            <button class="btn btn-error btn-lg fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'wrong' %}" hx-target="#review-panel" hx-swap="outerHTML">Wrong</button>
+            <button class="btn btn-error btn-lg fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'wrong' %}" hx-target="#review-panel" hx-swap="outerHTML">Incorrect</button>
           </form>
+          <button class="btn btn-outline btn-lg fc-tap rounded-2xl px-4" type="button" @click="menuOpen = !menuOpen" :aria-expanded="menuOpen.toString()" aria-label="More review actions">
+            <span class="text-xl leading-none" :class="menuOpen ? 'rotate-180' : ''">⌃</span>
+          </button>
           <form method="post" action="{% url 'cards:review_grade' 'got_it' %}">
             {% csrf_token %}
-            <button class="btn btn-success btn-lg fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'got_it' %}" hx-target="#review-panel" hx-swap="outerHTML">Got it</button>
+            <button class="btn btn-success btn-lg fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'got_it' %}" hx-target="#review-panel" hx-swap="outerHTML">Correct</button>
           </form>
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid gap-3 rounded-3xl border border-base-content/10 bg-base-200/70 p-3 sm:grid-cols-4" x-cloak x-show="menuOpen" x-transition>
           <form method="post" action="{% url 'cards:review_grade' 'show_less' %}">
             {% csrf_token %}
-            <button class="btn btn-info btn-lg fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'show_less' %}" hx-target="#review-panel" hx-swap="outerHTML">Show less</button>
+            <button class="btn btn-info fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'show_less' %}" hx-target="#review-panel" hx-swap="outerHTML">Show Less</button>
           </form>
           <form method="post" action="{% url 'cards:review_grade' 'hide' %}">
             {% csrf_token %}
-            <button class="btn btn-warning btn-lg fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'hide' %}" hx-target="#review-panel" hx-swap="outerHTML">Hide</button>
+            <button class="btn btn-warning fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'hide' %}" hx-target="#review-panel" hx-swap="outerHTML">Hide</button>
           </form>
+          <form method="post" action="{% url 'cards:review_mark' %}">
+            {% csrf_token %}
+            <button class="btn btn-secondary fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_mark' %}" hx-target="#review-panel" hx-swap="outerHTML">{% if card.is_marked %}Marked{% else %}Mark{% endif %}</button>
+          </form>
+          <a class="btn btn-outline fc-tap w-full rounded-2xl" href="{% url 'cards:review_edit' %}" hx-get="{% url 'cards:review_edit' %}" hx-target="#review-panel" hx-swap="outerHTML">Edit</a>
         </div>
       {% endif %}
     </div>

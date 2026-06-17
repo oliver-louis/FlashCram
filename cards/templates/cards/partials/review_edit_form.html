@@ -1,0 +1,97 @@
+{% load card_rendering %}
+<section id="review-panel" class="flex min-h-[calc(100vh-7rem)] flex-col gap-4">
+  <header class="fc-glass rounded-3xl p-4">
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="truncate text-sm fc-muted">{{ deck.name }}</p>
+        <h1 class="truncate text-xl font-black">Edit current card</h1>
+      </div>
+      <a class="btn btn-ghost btn-sm rounded-2xl" href="{% url 'cards:review_edit' %}?cancel=1" hx-get="{% url 'cards:review_edit' %}?cancel=1" hx-target="#review-panel" hx-swap="outerHTML">Cancel</a>
+    </div>
+  </header>
+
+  <form
+    class="fc-card space-y-4 rounded-3xl p-5"
+    method="post"
+    action="{% url 'cards:review_edit' %}"
+    enctype="multipart/form-data"
+    hx-encoding="multipart/form-data"
+    hx-post="{% url 'cards:review_edit' %}"
+    hx-target="#review-panel"
+    hx-swap="outerHTML"
+    x-data="{ confirming: false }"
+  >
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error rounded-2xl">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <label class="form-control">
+      <span class="label-text">Content format</span>
+      {{ form.content_format }}
+      {{ form.content_format.errors }}
+    </label>
+    <label class="form-control">
+      <span class="label-text">Front</span>
+      {{ form.front }}
+      {{ form.front.errors }}
+    </label>
+    <label class="form-control">
+      <span class="label-text">Back</span>
+      {{ form.back }}
+      {{ form.back.errors }}
+    </label>
+    <label class="form-control">
+      <span class="label-text">Tags</span>
+      {{ form.tags_text }}
+      {{ form.tags_text.errors }}
+    </label>
+    <label class="form-control">
+      <span class="label-text">Status</span>
+      {{ form.status }}
+      {{ form.status.errors }}
+    </label>
+
+    <div class="rounded-2xl border border-base-content/10 bg-base-200/70 p-3">
+      <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <label class="form-control">
+          <span class="label-text">Optional image</span>
+          {{ form.image_upload }}
+          {{ form.image_upload.errors }}
+        </label>
+        <label class="form-control sm:w-44">
+          <span class="label-text">Show image on</span>
+          {{ form.image_face }}
+          {{ form.image_face.errors }}
+        </label>
+      </div>
+      {% if card.image %}
+        <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+          {% with current_image=card|image_data_uri:card.image_face %}
+            <img class="h-24 w-24 rounded-2xl object-cover" src="{{ current_image }}" alt="Current card image">
+          {% endwith %}
+          <label class="btn btn-outline rounded-2xl">
+            {{ form.remove_image }}
+            Remove current image
+          </label>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <button class="btn btn-primary btn-lg fc-tap rounded-2xl" type="submit">Save</button>
+      <button class="btn btn-error btn-lg fc-tap rounded-2xl" type="button" @click="confirming = true">Delete</button>
+    </div>
+
+    <div class="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" x-cloak x-show="confirming">
+      <div class="fc-card w-full max-w-sm rounded-3xl p-5 shadow-xl">
+        <h2 class="text-xl font-black">Delete card?</h2>
+        <p class="mt-2 text-sm fc-muted">This removes the current card and continues the active review session.</p>
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <button class="btn btn-ghost rounded-2xl" type="button" @click="confirming = false">Cancel</button>
+          <button class="btn btn-error rounded-2xl" type="button" hx-post="{% url 'cards:review_delete' %}" hx-target="#review-panel" hx-swap="outerHTML">Delete</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</section>

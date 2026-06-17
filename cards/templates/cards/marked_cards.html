@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load card_rendering %}
+
+{% block title %}Marked cards | FlashCram{% endblock %}
+
+{% block content %}
+  <div class="flex flex-col gap-6">
+    <a class="btn btn-ghost w-fit rounded-2xl px-2" href="{% url 'cards:home' %}">‹ Back to decks</a>
+    <header class="fc-card rounded-3xl p-5 sm:p-6">
+      <p class="text-sm font-semibold uppercase tracking-[0.18em] text-secondary">Marked</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Marked cards</h1>
+      <p class="mt-2 max-w-2xl fc-muted">Cards you flagged during review for later editing, cleanup, or extra attention.</p>
+    </header>
+
+    {% for group in groups %}
+      <section class="space-y-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="truncate text-2xl font-black">{{ group.deck.name }}</h2>
+            <p class="text-sm fc-muted">{{ group.cards|length }} marked</p>
+          </div>
+          <a class="btn btn-outline rounded-2xl" href="{% url 'cards:deck_detail' group.deck.id %}">Open deck</a>
+        </div>
+        <div class="grid gap-3">
+          {% for card in group.cards %}
+            <article id="marked-card-{{ card.id }}" class="fc-card rounded-3xl p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="badge badge-secondary rounded-xl">Marked</span>
+                    <span class="badge rounded-xl {% if card.status == 'hidden' %}badge-warning{% elif card.status == 'less' %}badge-info{% else %}badge-neutral{% endif %}">{{ card.get_status_display }}</span>
+                  </div>
+                  <p class="mt-3 line-clamp-2 text-lg font-bold leading-snug">{{ card.front|card_plain_preview:card.content_format }}</p>
+                  <p class="mt-2 line-clamp-2 text-sm fc-muted">{{ card.back|card_plain_preview:card.content_format }}</p>
+                </div>
+              </div>
+              {% if card.tags %}
+                <div class="mt-3 flex flex-wrap gap-2">
+                  {% for tag in card.tags %}
+                    <span class="badge badge-outline badge-sm rounded-xl">{{ tag }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+              <div class="mt-4 flex flex-wrap gap-2">
+                <a class="btn btn-sm btn-outline rounded-2xl" href="{% url 'cards:deck_detail' group.deck.id %}">Open</a>
+                <a class="btn btn-sm btn-outline rounded-2xl" href="{% url 'cards:card_edit' group.deck.id card.id %}">Edit</a>
+                <form method="post" action="{% url 'cards:card_unmark' group.deck.id card.id %}">
+                  {% csrf_token %}
+                  <button class="btn btn-sm btn-secondary rounded-2xl" type="submit" hx-post="{% url 'cards:card_unmark' group.deck.id card.id %}" hx-target="#marked-card-{{ card.id }}" hx-swap="outerHTML">Unmark</button>
+                </form>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% empty %}
+      <section class="fc-card rounded-3xl border-dashed p-8 text-center">
+        <h2 class="text-2xl font-black">No marked cards</h2>
+        <p class="mx-auto mt-2 max-w-sm fc-muted">Use Mark from the review action menu to build a follow-up list.</p>
+      </section>
+    {% endfor %}
+  </div>
+{% endblock %}

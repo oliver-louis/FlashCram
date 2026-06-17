@@ -45,6 +45,12 @@ class TagNormalizationTests(TestCase):
 
         self.assertEqual(card.tags, ["shell", "files"])
 
+    def test_new_card_defaults_to_unmarked(self):
+        deck = Deck.objects.create(name="Marked")
+        card = Card.objects.create(deck=deck, front="Front", back="Back")
+
+        self.assertFalse(card.is_marked)
+
 
 class ClassificationTests(TestCase):
     def setUp(self):

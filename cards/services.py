@@ -161,6 +161,24 @@ def cards_for_deck(deck):
     return deck.cards.all().order_by("created_at", "id")
 
 
+def marked_cards_queryset():
+    from .models import Card
+
+    return Card.objects.filter(is_marked=True).select_related("deck").order_by("deck__name", "created_at", "id")
+
+
+def mark_card(card) -> None:
+    if not card.is_marked:
+        card.is_marked = True
+        card.save(update_fields=["is_marked", "updated_at"])
+
+
+def unmark_card(card) -> None:
+    if card.is_marked:
+        card.is_marked = False
+        card.save(update_fields=["is_marked", "updated_at"])
+
+
 def filter_cards_for_deck(deck, query="", tag="") -> list:
     query = (query or "").strip().lower()
     normalized_tag = normalize_tags(tag)
@@ -449,6 +467,26 @@ def undo_last_review_action(request) -> dict | None:
     return session
 
 
+def remove_card_from_active_review(request, card) -> dict | None:
+    session = get_review_session(request)
+    if not session:
+        return None
+
+    card_id = str(card.id)
+    cursor = session.get("cursor", 0)
+    queue = session.get("queue", [])
+    prefix = queue[:cursor]
+    remaining = [item for item in queue[cursor:] if item != card_id]
+    session["queue"] = prefix + remaining
+    session["cursor"] = min(cursor, len(session["queue"]))
+    session["log"] = [
+        entry for entry in session.get("log", []) if entry.get("card_id") != card_id
+    ]
+    request.session[REVIEW_SESSION_KEY] = session
+    request.session.modified = True
+    return session
+
+
 @dataclass(frozen=True)
 class ParsedCard:
     front: str
@@ -651,6 +689,7 @@ def serialize_card(card) -> dict:
         "timesCorrect": card.times_correct,
         "timesWrong": card.times_wrong,
         "status": card.status,
+        "isMarked": card.is_marked,
         "createdAt": isoformat(card.created_at),
         "updatedAt": isoformat(card.updated_at),
     }
@@ -709,6 +748,7 @@ def import_backup(payload) -> dict[str, int]:
                     "times_correct": int(card_data.get("timesCorrect", 0)),
                     "times_wrong": int(card_data.get("timesWrong", 0)),
                     "status": card_data.get("status", Card.Status.NORMAL),
+                    "is_marked": bool(card_data.get("isMarked", False)),
                 },
             )
             restore_timestamps(Card, card_id, card_data)

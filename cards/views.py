@@ -21,14 +21,19 @@ from .services import (
     filter_cards_for_deck,
     get_card_for_deck,
     get_deck,
+    get_review_session,
     get_settings,
     import_backup,
+    mark_card,
+    marked_cards_queryset,
     parse_authoring_json_cards,
     parse_bulk_cards,
+    remove_card_from_active_review,
     review_is_complete,
     review_progress,
     session_deck,
     start_review_session,
+    unmark_card,
     undo_last_review_action,
 )
 
@@ -289,6 +294,10 @@ def review_grade(request, action):
     except ValueError:
         return htmx_redirect(reverse("cards:home"))
 
+    return render_review_session_response(request, session)
+
+
+def render_review_session_response(request, session):
     deck = session_deck(session)
     if review_is_complete(session):
         summary = session["summary"].copy()
@@ -298,8 +307,57 @@ def review_grade(request, action):
             "cards/partials/review_summary.html",
             {"deck": deck, "summary": summary},
         )
-
     return render(request, "cards/partials/review_card.html", review_context(session))
+
+
+@require_POST
+def review_mark(request):
+    session = get_review_session(request)
+    if not session or review_is_complete(session):
+        return htmx_redirect(reverse("cards:home"))
+    card = current_review_card(session)
+    mark_card(card)
+    return render(request, "cards/partials/review_card.html", review_context(session))
+
+
+def review_edit(request):
+    session = get_review_session(request)
+    if not session or review_is_complete(session):
+        return htmx_redirect(reverse("cards:home"))
+    if request.GET.get("cancel"):
+        return render(request, "cards/partials/review_card.html", review_context(session))
+    deck = session_deck(session)
+    card = current_review_card(session)
+
+    if request.method == "POST":
+        form = CardForm(
+            request.POST,
+            request.FILES,
+            instance=card,
+        )
+        if form.is_valid():
+            form.save()
+            return render(request, "cards/partials/review_card.html", review_context(session))
+    else:
+        form = CardForm(instance=card)
+
+    return render(
+        request,
+        "cards/partials/review_edit_form.html",
+        {"deck": deck, "card": card, "form": form},
+        status=422 if request.method == "POST" else 200,
+    )
+
+
+@require_POST
+def review_delete(request):
+    session = get_review_session(request)
+    if not session or review_is_complete(session):
+        return htmx_redirect(reverse("cards:home"))
+    card = current_review_card(session)
+    session = remove_card_from_active_review(request, card)
+    card.delete()
+    return render_review_session_response(request, session)
 
 
 @require_POST
@@ -367,6 +425,34 @@ def bulk_import(request):
             "created_count": created_count,
         },
     )
+
+
+def marked_cards(request):
+    grouped = []
+    current_deck = None
+    current_cards = []
+    for card in marked_cards_queryset():
+        if current_deck is None or card.deck_id != current_deck.id:
+            if current_deck is not None:
+                grouped.append({"deck": current_deck, "cards": current_cards})
+            current_deck = card.deck
+            current_cards = []
+        current_cards.append(card)
+    if current_deck is not None:
+        grouped.append({"deck": current_deck, "cards": current_cards})
+    return render(request, "cards/marked_cards.html", {"groups": grouped})
+
+
+@require_POST
+def card_unmark(request, deck_id, card_id):
+    deck = get_deck(deck_id)
+    card = get_card_for_deck(deck, card_id)
+    unmark_card(card)
+    if request.htmx:
+        if request.headers.get("HX-Target", "").startswith("card-"):
+            return render(request, "cards/partials/card_row.html", {"deck": deck, "card": card})
+        return HttpResponse("")
+    return redirect("cards:marked_cards")
 
 
 def import_target_deck(form, fallback_name=""):
