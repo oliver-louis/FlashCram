@@ -295,6 +295,13 @@ def cards_for_review_mode(deck, mode=REVIEW_ALL_MODE, options=None, rng=None) ->
         return weighted_shuffle(base_cards, settings=settings, rng=rng)
     if mode == REVIEW_TAG_MODE:
         selected_tags = set(normalize_tags(options.get("tags", [])))
+        exclude_tags = bool(options.get("exclude_tags"))
+        if exclude_tags:
+            return [
+                card
+                for card in base_cards
+                if card.status != Card.Status.HIDDEN and not selected_tags.intersection(card.tags or [])
+            ]
         return [
             card
             for card in base_cards
@@ -328,7 +335,9 @@ def start_review_session(request, deck, mode=REVIEW_ALL_MODE, options=None, rng=
     session = {
         "deck_id": str(deck.id),
         "mode": mode,
-        "mode_label": REVIEW_MODES.get(mode, "Review"),
+        "mode_label": "Excluding tags"
+        if mode == REVIEW_TAG_MODE and options.get("exclude_tags")
+        else REVIEW_MODES.get(mode, "Review"),
         "options": options,
         "queue": queue,
         "cursor": 0,

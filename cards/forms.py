@@ -9,12 +9,16 @@ from .services import ImageProcessingError, get_settings, normalize_tags, proces
 class DeckForm(forms.ModelForm):
     class Meta:
         model = Deck
-        fields = ["name", "description"]
+        fields = ["name", "description", "show_tags_in_review"]
         widgets = {
             "name": forms.TextInput(attrs={"class": "input input-bordered h-14 w-full rounded-2xl"}),
             "description": forms.Textarea(
                 attrs={"class": "textarea textarea-bordered min-h-28 w-full rounded-2xl", "rows": 3}
             ),
+            "show_tags_in_review": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+        }
+        labels = {
+            "show_tags_in_review": "Show tags by default during review",
         }
 
 

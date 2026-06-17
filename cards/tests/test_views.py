@@ -85,6 +85,23 @@ class DeckCrudViewTests(TestCase):
         self.assertContains(save_response, "Renamed")
         self.assertContains(save_response, "After")
 
+    def test_deck_edit_saves_show_tags_in_review_default(self):
+        deck = Deck.objects.create(name="Deck")
+
+        response = self.client.post(
+            reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
+            {
+                "name": "Deck",
+                "description": "",
+                "show_tags_in_review": "on",
+            },
+            **HTMX,
+        )
+
+        deck.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(deck.show_tags_in_review)
+
     def test_deck_delete_htmx_cascades_cards_and_redirects(self):
         deck = Deck.objects.create(name="Delete me")
         Card.objects.create(deck=deck, front="front", back="back")
@@ -348,6 +365,27 @@ class ReviewAllViewTests(TestCase):
         self.assertContains(response, "Marked")
         self.assertContains(response, "first")
 
+    def test_review_screen_initializes_tag_visibility_from_deck_default(self):
+        self.deck.show_tags_in_review = True
+        self.deck.save(update_fields=["show_tags_in_review"])
+        self.make_card("tagged", tags=["exam", "shell"])
+
+        response = self.start_review()
+
+        self.assertContains(response, "showTags: true")
+        self.assertContains(response, ">Tags</button>")
+        self.assertContains(response, "exam")
+        self.assertContains(response, "shell")
+
+    def test_review_screen_can_hide_tags_by_default_but_still_offer_toggle(self):
+        self.make_card("tagged", tags=["exam"])
+
+        response = self.start_review()
+
+        self.assertContains(response, "showTags: false")
+        self.assertContains(response, ">Tags</button>")
+        self.assertContains(response, 'x-show="showTags"')
+
     def test_review_edit_updates_card_and_returns_to_session(self):
         card = self.make_card("old", tags=["before"])
         self.start_review()
@@ -531,6 +569,31 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, "Bulk import")
         self.assertContains(response, "Review by tag")
 
+    def test_review_by_tag_include_and_exclude_modes_build_expected_queues(self):
+        deck = Deck.objects.create(name="Tag modes")
+        shell = Card.objects.create(deck=deck, front="shell", back="back", tags=["shell"])
+        python = Card.objects.create(deck=deck, front="python", back="back", tags=["python"])
+        untagged = Card.objects.create(deck=deck, front="untagged", back="back")
+        Card.objects.create(deck=deck, front="hidden", back="back", tags=["shell"], status=Card.Status.HIDDEN)
+
+        include = self.client.post(
+            reverse("cards:review_start_tag", kwargs={"deck_id": deck.id}),
+            {"tags": ["shell"], "tag_mode": "include"},
+        )
+        include_session = self.client.session[REVIEW_SESSION_KEY]
+        self.assertEqual(include_session["queue"], [str(shell.id)])
+        self.assertEqual(include_session["mode_label"], "By tag")
+        self.assertContains(include, "By tag")
+
+        exclude = self.client.post(
+            reverse("cards:review_start_tag", kwargs={"deck_id": deck.id}),
+            {"tags": ["shell"], "tag_mode": "exclude"},
+        )
+        exclude_session = self.client.session[REVIEW_SESSION_KEY]
+        self.assertEqual(exclude_session["queue"], [str(python.id), str(untagged.id)])
+        self.assertEqual(exclude_session["mode_label"], "Excluding tags")
+        self.assertContains(exclude, "Excluding tags")
+
     def test_deck_detail_places_review_before_deck_info(self):
         deck = Deck.objects.create(name="Order")
 
@@ -546,6 +609,12 @@ class PhaseTwoViewTests(TestCase):
 
         response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
 
+        self.assertContains(response, 'id="tag-review-cards"')
+        self.assertContains(response, "tag_mode")
+        self.assertContains(response, "Include")
+        self.assertContains(response, "Exclude")
+        self.assertContains(response, "count()")
+        self.assertContains(response, ":disabled=\"count() === 0\"")
         self.assertContains(response, "Show all 9 tags", count=2)
         self.assertContains(response, 'x-show="expanded"')
         self.assertContains(response, "tag8")

@@ -3,7 +3,7 @@
     {% for tag in tags %}
       {% if selectable %}
         <label class="btn btn-sm btn-outline max-w-full rounded-2xl has-[:checked]:btn-primary" {% if tag_count > 8 and forloop.counter > 8 %}x-cloak x-show="expanded"{% endif %}>
-          <input class="hidden" type="checkbox" name="tags" value="{{ tag }}">
+          <input class="hidden" type="checkbox" name="tags" value="{{ tag }}"{% if bind_selected %} x-model="selected"{% endif %}>
           <span class="max-w-full truncate">{{ tag }}</span>
         </label>
       {% else %}

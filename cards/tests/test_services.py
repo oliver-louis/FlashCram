@@ -66,6 +66,14 @@ class ReviewModeServiceTests(TestCase):
 
         self.assertEqual(cards_for_review_mode(self.deck, "all"), [normal, less, weak, unseen])
         self.assertEqual(cards_for_review_mode(self.deck, "tag", {"tags": ["shell"]}), [normal, weak])
+        self.assertEqual(
+            cards_for_review_mode(self.deck, "tag", {"tags": ["shell"], "exclude_tags": True}),
+            [less, unseen],
+        )
+        self.assertEqual(
+            cards_for_review_mode(self.deck, "tag", {"tags": [], "exclude_tags": True}),
+            [normal, less, weak, unseen],
+        )
         self.assertEqual(cards_for_review_mode(self.deck, "weak"), [weak])
         self.assertEqual(cards_for_review_mode(self.deck, "unseen"), [normal, less, unseen])
         self.assertEqual(cards_for_review_mode(self.deck, "hidden"), [hidden])

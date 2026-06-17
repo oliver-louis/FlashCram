@@ -52,12 +52,18 @@ def home(request):
 
 def deck_detail(request, deck_id):
     deck = get_deck(deck_id)
+    tag_review_cards = [
+        {"id": str(card.id), "tags": card.tags or []}
+        for card in cards_for_deck(deck)
+        if card.status != Card.Status.HIDDEN
+    ]
     return render(
         request,
         "cards/deck_detail.html",
         {
             "deck": deck,
             "cards": cards_for_deck(deck),
+            "tag_review_cards": tag_review_cards,
             "query": "",
             "selected_tag": "",
             "selected_status": "",
@@ -318,7 +324,13 @@ def review_start_mode(request, deck_id, mode):
 def review_start_tag(request, deck_id):
     deck = get_deck(deck_id)
     tags = request.POST.getlist("tags")
-    session = start_review_session(request, deck, "tag", {"tags": tags})
+    tag_mode = request.POST.get("tag_mode", "include")
+    session = start_review_session(
+        request,
+        deck,
+        "tag",
+        {"tags": tags, "exclude_tags": tag_mode == "exclude"},
+    )
     if review_is_complete(session):
         mode_label = session["mode_label"]
         clear_review_session(request)
@@ -422,6 +434,7 @@ def review_context(session, initial_revealed=False):
         "can_undo": bool(session.get("log")),
         "is_hidden_mode": session.get("mode") == REVIEW_HIDDEN_MODE,
         "initial_revealed": initial_revealed,
+        "show_tags_default": deck.show_tags_in_review,
     }
 
 

@@ -18,13 +18,16 @@
     <progress class="progress progress-primary mt-4 h-2" value="{{ progress_current }}" max="{{ progress_total }}"></progress>
   </header>
 
-  <div x-data="{ revealed: {{ initial_revealed|yesno:'true,false' }}, menuOpen: false }" class="flex flex-1 flex-col gap-4">
+  <div x-data="{ revealed: {{ initial_revealed|yesno:'true,false' }}, menuOpen: false, showTags: {{ show_tags_default|yesno:'true,false' }} }" class="flex flex-1 flex-col gap-4">
     <div role="button" tabindex="0" class="fc-review-card flex flex-1 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]" @click="revealed = !revealed" @keydown.enter.prevent="revealed = !revealed" @keydown.space.prevent="revealed = !revealed">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
         <div class="flex items-center gap-2">
           {% if card.is_marked %}
             <span class="badge badge-secondary rounded-xl">Marked</span>
+          {% endif %}
+          {% if card.tags %}
+            <button class="btn btn-ghost btn-sm rounded-2xl" type="button" @click.stop="showTags = !showTags" :class="showTags ? 'btn-active' : ''">Tags</button>
           {% endif %}
           <span class="badge badge-outline rounded-xl" x-text="revealed ? 'Tap to flip back' : 'Tap to reveal'"></span>
           <form method="post" action="{% url 'cards:review_grade' 'skip' %}" @click.stop>
@@ -33,6 +36,13 @@
           </form>
         </div>
       </div>
+      {% if card.tags %}
+        <div class="mt-4 flex flex-wrap gap-2" x-cloak x-show="showTags">
+          {% for tag in card.tags %}
+            <span class="badge badge-outline rounded-xl">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
       <div class="mt-8 flex flex-1 flex-col justify-center text-2xl leading-tight sm:text-3xl" x-show="!revealed">
         {% with rendered_face=rendered_front %}
           {% include "cards/partials/rendered_face.html" %}

@@ -15,6 +15,14 @@
       {{ form.description }}
       {{ form.description.errors }}
     </label>
+    <label class="flex items-center justify-between gap-4 rounded-2xl border border-base-content/10 bg-base-200/60 p-4">
+      <span>
+        <span class="block font-semibold">{{ form.show_tags_in_review.label }}</span>
+        <span class="text-sm fc-muted">Review mode still has a temporary Tags toggle.</span>
+      </span>
+      {{ form.show_tags_in_review }}
+    </label>
+    {{ form.show_tags_in_review.errors }}
     <div class="grid grid-cols-2 gap-3 sm:flex">
       <button class="btn btn-primary fc-tap rounded-2xl" type="submit">{{ submit_label }}</button>
       <a class="btn btn-ghost fc-tap rounded-2xl" href="{% if deck %}{% url 'cards:deck_detail' deck.id %}{% else %}{% url 'cards:home' %}{% endif %}">Cancel</a>
