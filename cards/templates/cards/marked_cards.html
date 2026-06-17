@@ -4,7 +4,30 @@
 {% block title %}Marked cards | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex flex-col gap-6" x-data="{ selected: [] }">
+  <div
+    class="flex flex-col gap-6"
+    x-data="{
+      selected: [],
+      allIds: [
+        {% for group in groups %}
+          {% for card in group.cards %}
+            '{{ card.id }}'{% if not forloop.last or not forloop.parentloop.last %},{% endif %}
+          {% endfor %}
+        {% endfor %}
+      ],
+      deckIds: {
+        {% for group in groups %}
+          '{{ group.deck.id }}': [{% for card in group.cards %}'{{ card.id }}'{% if not forloop.last %}, {% endif %}{% endfor %}]{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      },
+      toggleIds(ids) {
+        const allSelected = ids.every((id) => this.selected.includes(id));
+        this.selected = allSelected
+          ? this.selected.filter((id) => !ids.includes(id))
+          : Array.from(new Set([...this.selected, ...ids]));
+      }
+    }"
+  >
     <a class="btn btn-ghost w-fit rounded-2xl px-2" href="{% url 'cards:home' %}">‹ Back to decks</a>
     <header class="fc-card rounded-3xl p-5 sm:p-6">
       <p class="text-sm font-semibold uppercase tracking-[0.18em] text-secondary">Marked</p>
@@ -20,14 +43,21 @@
             <h2 class="text-xl font-black">Bulk actions</h2>
             <p class="text-sm fc-muted"><span x-text="selected.length"></span> selected</p>
           </div>
-          <button class="btn btn-ghost btn-sm w-fit rounded-2xl" type="button" @click="selected = []">Clear selection</button>
+          <div class="flex flex-wrap gap-2">
+            <label class="btn btn-outline btn-sm rounded-2xl">
+              <input class="checkbox checkbox-primary checkbox-sm" type="checkbox" :checked="allIds.length > 0 && allIds.every((id) => selected.includes(id))" @change="toggleIds(allIds)">
+              Select all
+            </label>
+            <button class="btn btn-ghost btn-sm w-fit rounded-2xl" type="button" @click="selected = []">Clear selection</button>
+          </div>
         </div>
-        <div class="mt-4 grid gap-3 lg:grid-cols-[1fr_auto_1fr_auto]">
+        <div class="mt-4 grid gap-3 lg:grid-cols-[1fr_auto_auto_1fr_auto]">
           <label class="input input-bordered flex h-14 items-center gap-2 rounded-2xl">
             <span class="text-base-content/50">Tags</span>
             <input class="grow" type="text" name="tags_text" placeholder="important, revise">
           </label>
           <button class="btn btn-secondary fc-tap rounded-2xl" type="submit" name="bulk_action" value="tag" :disabled="selected.length === 0">Add tags</button>
+          <button class="btn btn-warning fc-tap rounded-2xl" type="submit" name="bulk_action" value="unmark" :disabled="selected.length === 0">Unmark selected</button>
           <div class="grid gap-3 sm:grid-cols-2">
             <select class="select select-bordered h-14 w-full rounded-2xl" name="deck">
               <option value="">Choose deck</option>
@@ -49,7 +79,13 @@
             <h2 class="truncate text-2xl font-black">{{ group.deck.name }}</h2>
             <p class="text-sm fc-muted">{{ group.cards|length }} marked</p>
           </div>
-          <a class="btn btn-outline rounded-2xl" href="{% url 'cards:deck_detail' group.deck.id %}">Open deck</a>
+          <div class="flex flex-wrap justify-end gap-2">
+            <label class="btn btn-secondary btn-sm rounded-2xl">
+              <input class="checkbox checkbox-sm" type="checkbox" :checked="deckIds['{{ group.deck.id }}'].every((id) => selected.includes(id))" @change="toggleIds(deckIds['{{ group.deck.id }}'])">
+              Select deck
+            </label>
+            <a class="btn btn-outline btn-sm rounded-2xl" href="{% url 'cards:deck_detail' group.deck.id %}">Open deck</a>
+          </div>
         </div>
         <div class="grid gap-3">
           {% for card in group.cards %}

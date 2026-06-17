@@ -513,6 +513,9 @@ def marked_bulk_action(request):
     action = request.POST.get("bulk_action")
     if action == "tag":
         add_tags_to_cards(selected_cards, request.POST.get("tags_text", ""))
+    elif action == "unmark":
+        for card in selected_cards:
+            unmark_card(card)
     elif action == "deck":
         target_deck = None
         new_deck_name = (request.POST.get("new_deck_name") or "").strip()

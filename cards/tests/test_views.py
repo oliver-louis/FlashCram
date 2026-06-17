@@ -488,6 +488,11 @@ class ReviewAllViewTests(TestCase):
 
         self.assertContains(response, "Marked cards")
         self.assertContains(response, "Bulk actions")
+        self.assertContains(response, "Select all")
+        self.assertContains(response, "Select deck")
+        self.assertContains(response, "Unmark selected")
+        self.assertContains(response, "toggleIds(allIds)")
+        self.assertContains(response, "deckIds")
         self.assertContains(response, f'value="{marked.id}"')
         self.assertContains(response, "marked")
         self.assertNotContains(response, "plain")
@@ -501,6 +506,27 @@ class ReviewAllViewTests(TestCase):
         self.assertEqual(unmark.status_code, 200)
         self.assertEqual(unmark.content, b"")
         self.assertFalse(marked.is_marked)
+
+    def test_marked_bulk_action_unmarks_selected_cards(self):
+        first = self.make_card("first", is_marked=True)
+        second = self.make_card("second", is_marked=True)
+        unselected = self.make_card("third", is_marked=True)
+
+        response = self.client.post(
+            reverse("cards:marked_bulk_action"),
+            {
+                "cards": [str(first.id), str(second.id)],
+                "bulk_action": "unmark",
+            },
+        )
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        unselected.refresh_from_db()
+        self.assertRedirects(response, reverse("cards:marked_cards"))
+        self.assertFalse(first.is_marked)
+        self.assertFalse(second.is_marked)
+        self.assertTrue(unselected.is_marked)
 
     def test_marked_bulk_action_adds_tags_to_selected_cards(self):
         first = self.make_card("first", is_marked=True, tags=["old"])
