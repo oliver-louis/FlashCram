@@ -1,9 +1,21 @@
 <div
   id="card-preview-modal"
   class="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4"
-  x-data="{ open: true, revealed: false }"
+  x-data="{
+    open: true,
+    revealed: false,
+    refitMath() {
+      this.$nextTick(() => window.requestAnimationFrame(() => window.flashcramFitMath?.(this.$root)));
+    },
+    toggleReveal() {
+      this.revealed = !this.revealed;
+      this.refitMath();
+    }
+  }"
+  x-init="refitMath()"
   x-show="open"
   x-transition
+  @click.self="open = false"
   @keydown.escape.window="open = false"
 >
   <section class="flex max-h-[92vh] w-full max-w-2xl flex-col gap-3">
@@ -19,17 +31,19 @@
       role="button"
       tabindex="0"
       class="fc-review-card flex min-h-[24rem] flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]"
-      @click="revealed = !revealed"
-      @keydown.enter.prevent="revealed = !revealed"
-      @keydown.space.prevent="revealed = !revealed"
+      @click="toggleReveal()"
+      @keydown.enter.prevent="toggleReveal()"
+      @keydown.space.prevent="toggleReveal()"
     >
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
         <div class="flex items-center gap-2">
           {% if card.is_marked %}
-            <span class="badge badge-secondary rounded-xl">Marked</span>
+            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-secondary text-sm font-black text-secondary-content shadow-sm shadow-secondary/30" aria-label="Marked card" title="Marked card">
+              <span aria-hidden="true">★</span>
+            </span>
           {% endif %}
-          <span class="badge badge-outline rounded-xl" x-text="revealed ? 'Tap to flip back' : 'Tap to reveal'"></span>
+          <span class="badge badge-outline min-w-14 rounded-xl text-center" x-text="revealed ? 'Back' : 'Flip'" :aria-label="revealed ? 'Tap card to flip back to the front' : 'Tap card to reveal the back'" :title="revealed ? 'Tap card to flip back' : 'Tap card to reveal'">Flip</span>
         </div>
       </div>
       <div class="mt-8 flex flex-1 flex-col justify-center overflow-y-auto text-2xl leading-tight sm:text-3xl" x-show="!revealed">

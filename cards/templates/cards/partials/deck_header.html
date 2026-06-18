@@ -1,7 +1,18 @@
 <section id="deck-header" class="fc-card max-w-full rounded-3xl p-5 sm:p-6">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
     <div class="min-w-0">
-      <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Deck</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Deck</p>
+        {% if deck.category %}
+          <span class="badge badge-outline rounded-xl">{{ deck.category.name }}</span>
+        {% endif %}
+        {% if deck.is_pinned %}
+          <span class="badge badge-primary rounded-xl">Pinned</span>
+        {% endif %}
+        {% if deck.is_favorite %}
+          <span class="badge badge-secondary rounded-xl">Favourite</span>
+        {% endif %}
+      </div>
       <h1 class="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">{{ deck.name }}</h1>
       <p class="mt-2 max-w-2xl fc-muted">
         {% if deck.description %}

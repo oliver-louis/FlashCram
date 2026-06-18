@@ -15,6 +15,59 @@
       {{ form.description }}
       {{ form.description.errors }}
     </label>
+    <div
+      class="form-control relative"
+      x-data="{
+        categoryQuery: '{{ form.category_name.value|default_if_none:''|escapejs }}',
+        categoryOpen: false,
+        categories: [{% for category_name in category_names %}'{{ category_name|escapejs }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+        matches() {
+          const q = this.categoryQuery.trim().toLowerCase();
+          return this.categories.filter((name) => !q || name.toLowerCase().includes(q));
+        },
+        hasExact() {
+          const q = this.categoryQuery.trim().toLowerCase();
+          return q && this.categories.some((name) => name.toLowerCase() === q);
+        },
+        choose(name) {
+          this.categoryQuery = name;
+          this.categoryOpen = false;
+        }
+      }"
+    >
+      <span class="label-text">{{ form.category_name.label }}</span>
+      {{ form.category_name }}
+      {{ form.category_name.errors }}
+      <div class="fc-card absolute left-0 right-0 top-full z-40 mt-2 max-h-64 overflow-auto rounded-3xl p-2 shadow-xl" x-cloak x-show="categoryOpen" @mousedown.prevent>
+        <template x-for="name in matches()" :key="name">
+          <button class="btn btn-ghost fc-tap w-full justify-start rounded-2xl" type="button" @click="choose(name)" x-text="name"></button>
+        </template>
+        <button class="btn btn-ghost fc-tap w-full justify-start rounded-2xl text-primary" type="button" x-show="categoryQuery.trim() && !hasExact()" @click="categoryOpen = false">
+          Create new “<span x-text="categoryQuery.trim()"></span>”
+        </button>
+        <p class="px-3 py-2 text-sm fc-muted" x-show="!categoryQuery.trim() && categories.length === 0">Type a category name to create one.</p>
+        <button class="btn btn-ghost fc-tap w-full justify-start rounded-2xl" type="button" x-show="categoryQuery.trim()" @click="choose('')">No category</button>
+      </div>
+      <p class="mt-2 text-sm fc-muted">Start typing to find a category, or type a new one and save.</p>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <label class="flex items-center justify-between gap-4 rounded-2xl border border-base-content/10 bg-base-200/60 p-4">
+        <span>
+          <span class="block font-semibold">{{ form.is_pinned.label }}</span>
+          <span class="text-sm fc-muted">Pinned decks appear first on the home page.</span>
+        </span>
+        {{ form.is_pinned }}
+      </label>
+      <label class="flex items-center justify-between gap-4 rounded-2xl border border-base-content/10 bg-base-200/60 p-4">
+        <span>
+          <span class="block font-semibold">{{ form.is_favorite.label }}</span>
+          <span class="text-sm fc-muted">Favourites get a compact star marker.</span>
+        </span>
+        {{ form.is_favorite }}
+      </label>
+    </div>
+    {{ form.is_pinned.errors }}
+    {{ form.is_favorite.errors }}
     <label class="flex items-center justify-between gap-4 rounded-2xl border border-base-content/10 bg-base-200/60 p-4">
       <span>
         <span class="block font-semibold">{{ form.show_tags_in_review.label }}</span>

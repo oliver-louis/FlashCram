@@ -27,6 +27,99 @@
     <script defer src="{% static 'vendor/katex/auto-render.min.js' %}"></script>
     <script type="module" src="{% static 'vendor/mathlive/mathlive.min.mjs' %}"></script>
     <script>
+      window.flashcramFitMath = function(root) {
+        const scope = root || document;
+        const mathRoots = new Set();
+        if (scope.matches && scope.matches('[data-render-math="true"]')) {
+          mathRoots.add(scope);
+        }
+        if (scope.querySelectorAll) {
+          scope.querySelectorAll('[data-render-math="true"]').forEach(function(target) {
+            mathRoots.add(target);
+          });
+        }
+
+        mathRoots.forEach(function(mathRoot) {
+          mathRoot.querySelectorAll('.katex').forEach(function(katex) {
+            if (katex.closest('.katex-display') || katex.parentElement?.classList.contains('fc-math-inline-frame')) {
+              return;
+            }
+            const frame = document.createElement('span');
+            frame.className = 'fc-math-inline-frame';
+            katex.parentNode.insertBefore(frame, katex);
+            frame.appendChild(katex);
+          });
+
+          const targets = [];
+          mathRoot.querySelectorAll('.katex-display').forEach(function(display) {
+            const subject = display.querySelector('.katex');
+            if (subject) {
+              targets.push({ frame: display, subject: subject, inline: false });
+            }
+          });
+          mathRoot.querySelectorAll('.fc-math-inline-frame').forEach(function(frame) {
+            const subject = frame.querySelector('.katex');
+            if (subject) {
+              targets.push({ frame: frame, subject: subject, inline: true });
+            }
+          });
+
+          targets.forEach(function(item) {
+            const frame = item.frame;
+            const subject = item.subject;
+            const container = frame.closest('.fc-rendered-content') || frame.parentElement || mathRoot;
+            const available = Math.floor(container.clientWidth || container.getBoundingClientRect().width || 0);
+            if (available <= 1 || frame.getClientRects().length === 0 || subject.getClientRects().length === 0) {
+              return;
+            }
+            const mobile = window.matchMedia('(max-width: 639px)').matches;
+            const minScale = mobile ? 0.62 : 0.75;
+
+            frame.classList.toggle('fc-math-display-frame', !item.inline);
+            frame.classList.toggle('fc-math-inline-frame', item.inline);
+            frame.classList.remove('fc-math-contained');
+            subject.classList.remove('fc-math-fit-subject');
+            subject.style.removeProperty('--fc-math-scale');
+            subject.style.removeProperty('transform');
+            frame.style.removeProperty('height');
+            frame.style.removeProperty('width');
+
+            const htmlSubject = subject.querySelector('.katex-html');
+            const subjectRect = subject.getBoundingClientRect();
+            const htmlRect = htmlSubject ? htmlSubject.getBoundingClientRect() : { width: 0, height: 0 };
+            const naturalWidth = Math.max(
+              subject.scrollWidth,
+              subjectRect.width,
+              htmlSubject ? htmlSubject.scrollWidth : 0,
+              htmlRect.width
+            );
+            const naturalHeight = Math.max(
+              subject.scrollHeight,
+              subjectRect.height,
+              htmlSubject ? htmlSubject.scrollHeight : 0,
+              htmlRect.height
+            );
+            if (!naturalWidth || naturalWidth <= available) {
+              return;
+            }
+
+            let scale = available / naturalWidth;
+            const needsContainment = scale < minScale;
+            if (needsContainment) {
+              scale = minScale;
+              frame.classList.add('fc-math-contained');
+            }
+
+            subject.classList.add('fc-math-fit-subject');
+            subject.style.setProperty('--fc-math-scale', scale.toFixed(4));
+            frame.style.height = `${Math.ceil(naturalHeight * scale)}px`;
+            if (item.inline) {
+              frame.style.width = `${Math.min(Math.ceil(naturalWidth * scale), available)}px`;
+            }
+          });
+        });
+      };
+
       window.flashcramRenderMath = function(root) {
         if (!window.renderMathInElement) return;
         const scope = root || document;
@@ -49,6 +142,18 @@
           throwOnError: false
           });
         });
+        window.requestAnimationFrame(function() {
+          window.flashcramFitMath(scope);
+        });
+      };
+      let flashcramMathFitFrame = null;
+      window.flashcramRefitMath = function() {
+        if (flashcramMathFitFrame) {
+          window.cancelAnimationFrame(flashcramMathFitFrame);
+        }
+        flashcramMathFitFrame = window.requestAnimationFrame(function() {
+          window.flashcramFitMath(document);
+        });
       };
       document.addEventListener("DOMContentLoaded", function() {
         window.flashcramRenderMath(document);
@@ -56,6 +161,8 @@
       document.addEventListener("htmx:afterSwap", function(event) {
         window.flashcramRenderMath(event.target);
       });
+      window.addEventListener("resize", window.flashcramRefitMath);
+      window.addEventListener("orientationchange", window.flashcramRefitMath);
     </script>
   </head>
   <body class="min-h-screen bg-base-300 text-base-content antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>

@@ -128,6 +128,9 @@
   .fc-rendered-content {
     color: inherit;
     font-weight: 400;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
     overflow-wrap: anywhere;
   }
 
@@ -201,6 +204,64 @@
   .fc-rendered-content :where(th, td) {
     border: 1px solid var(--fc-border);
     padding: 0.45rem 0.65rem;
+  }
+
+  .fc-rendered-content :where(.arithmatex, .katex-display) {
+    max-width: 100%;
+  }
+
+  .fc-rendered-content :where(.arithmatex) {
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .fc-rendered-content :where(.katex-display) {
+    margin: 0.85rem 0;
+    text-align: center;
+  }
+
+  .fc-math-display-frame,
+  .fc-math-inline-frame {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .fc-math-display-frame {
+    display: block;
+    width: 100%;
+    text-align: center;
+  }
+
+  .fc-math-inline-frame {
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  .fc-math-fit-subject {
+    display: inline-block !important;
+    transform: scale(var(--fc-math-scale, 1));
+  }
+
+  .fc-math-display-frame:has(.fc-math-fit-subject),
+  .fc-math-inline-frame:has(.fc-math-fit-subject) {
+    overflow-x: hidden;
+  }
+
+  .fc-math-display-frame .fc-math-fit-subject {
+    transform-origin: center center;
+  }
+
+  .fc-math-inline-frame .fc-math-fit-subject,
+  .fc-math-contained .fc-math-fit-subject {
+    transform-origin: left center;
+  }
+
+  .fc-math-contained {
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   math-field {

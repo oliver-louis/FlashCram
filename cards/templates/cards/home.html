@@ -17,17 +17,78 @@
 
     <div id="deck-form-slot"></div>
 
-    <section id="deck-list" class="grid gap-3 md:grid-cols-2">
-      {% for deck in decks %}
-        {% include "cards/partials/deck_card.html" %}
-      {% empty %}
-        <div id="empty-deck-list" class="fc-card rounded-3xl border-dashed p-8 text-center md:col-span-2">
+    <div id="deck-list" class="flex flex-col gap-6">
+      {% if not show_grouped_home and has_decks %}
+        <section class="grid gap-3 md:grid-cols-2">
+          {% for deck in uncategorized %}
+            {% include "cards/partials/deck_card.html" %}
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if show_grouped_home and pinned %}
+        <section class="flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-2xl font-black">Pinned</h2>
+            <span class="badge badge-primary rounded-xl">{{ pinned|length }}</span>
+          </div>
+          <div class="grid gap-3 md:grid-cols-2">
+            {% for deck in pinned %}
+              {% include "cards/partials/deck_card.html" %}
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if show_grouped_home %}
+        {% for group in category_groups %}
+          <section class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Category</p>
+                <h2 class="truncate text-2xl font-black">{{ group.category.name }}</h2>
+              </div>
+              <span class="badge badge-outline rounded-xl">{{ group.decks|length }}</span>
+            </div>
+            <div class="grid gap-3 md:grid-cols-2">
+              {% for deck in group.decks %}
+                {% include "cards/partials/deck_card.html" %}
+              {% endfor %}
+            </div>
+          </section>
+        {% endfor %}
+      {% endif %}
+
+      {% if show_grouped_home and not has_categories and uncategorized %}
+        <section class="grid gap-3 md:grid-cols-2">
+          {% for deck in uncategorized %}
+            {% include "cards/partials/deck_card.html" %}
+          {% endfor %}
+        </section>
+      {% endif %}
+
+      {% if show_grouped_home and has_categories and uncategorized %}
+        <section class="flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-2xl font-black">Uncategorized</h2>
+            <span class="badge badge-outline rounded-xl">{{ uncategorized|length }}</span>
+          </div>
+          <div class="grid gap-3 md:grid-cols-2">
+            {% for deck in uncategorized %}
+              {% include "cards/partials/deck_card.html" %}
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if not has_decks %}
+        <div id="empty-deck-list" class="fc-card rounded-3xl border-dashed p-8 text-center">
           <div class="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-primary/15 text-3xl font-black text-primary">F</div>
           <h2 class="mt-5 text-2xl font-black">No decks yet</h2>
           <p class="mx-auto mt-2 max-w-sm fc-muted">Create your first deck and FlashCram will keep the review actions one tap away.</p>
           <a class="btn btn-primary btn-lg mt-6 rounded-2xl" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">Create deck</a>
         </div>
-      {% endfor %}
-    </section>
+      {% endif %}
+    </div>
   </div>
 {% endblock %}

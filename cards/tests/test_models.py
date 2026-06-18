@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from cards.models import Card, Deck, Settings
+from cards.models import Card, Category, Deck, Settings
 from cards.services import get_settings, normalize_tags
 
 
@@ -50,6 +50,31 @@ class TagNormalizationTests(TestCase):
         card = Card.objects.create(deck=deck, front="Front", back="Back")
 
         self.assertFalse(card.is_marked)
+
+
+class CategoryDeckModelTests(TestCase):
+    def test_deck_can_be_uncategorized_or_assigned_to_category(self):
+        category = Category.objects.create(name="CSSE2310")
+        uncategorized = Deck.objects.create(name="Loose")
+        categorized = Deck.objects.create(name="Exam", category=category)
+
+        self.assertIsNone(uncategorized.category)
+        self.assertEqual(categorized.category, category)
+
+    def test_deleting_category_uncategorizes_decks(self):
+        category = Category.objects.create(name="Economics")
+        deck = Deck.objects.create(name="Final", category=category)
+
+        category.delete()
+
+        deck.refresh_from_db()
+        self.assertIsNone(deck.category)
+
+    def test_pin_and_favorite_default_false(self):
+        deck = Deck.objects.create(name="Defaults")
+
+        self.assertFalse(deck.is_pinned)
+        self.assertFalse(deck.is_favorite)
 
 
 class ClassificationTests(TestCase):

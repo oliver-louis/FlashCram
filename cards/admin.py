@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Card, Deck, Settings
+from .models import Card, Category, Deck, Settings
 
 
 class CardInline(admin.TabularInline):
@@ -21,10 +21,20 @@ class CardInline(admin.TabularInline):
     )
 
 
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", "deck_count", "created_at", "updated_at")
+    search_fields = ("name", "description")
+
+    def deck_count(self, category):
+        return category.decks.count()
+
+
 @admin.register(Deck)
 class DeckAdmin(admin.ModelAdmin):
-    list_display = ("name", "card_count", "created_at", "updated_at")
-    search_fields = ("name", "description")
+    list_display = ("name", "category", "is_pinned", "is_favorite", "card_count", "created_at", "updated_at")
+    list_filter = ("category", "is_pinned", "is_favorite")
+    search_fields = ("name", "description", "category__name")
     inlines = [CardInline]
 
 

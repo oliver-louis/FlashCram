@@ -154,7 +154,47 @@ def is_weak_card(card, settings=None) -> bool:
 def decks_queryset():
     from .models import Deck
 
-    return Deck.objects.all().order_by("created_at", "name")
+    return Deck.objects.select_related("category").all().order_by(
+        "-is_pinned",
+        "category__name",
+        "created_at",
+        "name",
+    )
+
+
+def categories_queryset():
+    from .models import Category
+
+    return Category.objects.all().order_by("name", "created_at")
+
+
+def deck_home_groups():
+    decks = list(decks_queryset())
+    categories = list(categories_queryset())
+    has_used_categories = any(deck.category_id for deck in decks)
+    pinned = [deck for deck in decks if deck.is_pinned]
+    unpinned = [deck for deck in decks if not deck.is_pinned]
+    category_groups = []
+    uncategorized = []
+
+    for category in categories:
+        category_decks = [deck for deck in unpinned if deck.category_id == category.id]
+        if category_decks:
+            category_groups.append({"category": category, "decks": category_decks})
+
+    categorized_ids = {deck.id for group in category_groups for deck in group["decks"]}
+    for deck in unpinned:
+        if deck.category_id is None or deck.id not in categorized_ids:
+            uncategorized.append(deck)
+
+    return {
+        "pinned": pinned,
+        "category_groups": category_groups,
+        "uncategorized": uncategorized,
+        "has_decks": bool(decks),
+        "has_categories": has_used_categories,
+        "show_grouped_home": bool(pinned or category_groups or has_used_categories),
+    }
 
 
 def cards_for_deck(deck):
@@ -165,6 +205,16 @@ def marked_cards_queryset():
     from .models import Card
 
     return Card.objects.filter(is_marked=True).select_related("deck").order_by("deck__name", "created_at", "id")
+
+
+def toggle_deck_pin(deck) -> None:
+    deck.is_pinned = not deck.is_pinned
+    deck.save(update_fields=["is_pinned", "updated_at"])
+
+
+def toggle_deck_favorite(deck) -> None:
+    deck.is_favorite = not deck.is_favorite
+    deck.save(update_fields=["is_favorite", "updated_at"])
 
 
 def mark_card(card) -> None:
@@ -712,11 +762,24 @@ def isoformat(value) -> str:
 
 
 def export_backup(decks=None) -> dict:
-    decks = decks if decks is not None else decks_queryset()
+    decks = list(decks if decks is not None else decks_queryset())
+    category_ids = {deck.category_id for deck in decks if deck.category_id}
+    categories = categories_queryset().filter(id__in=category_ids)
     return {
         "version": 1,
         "exportedAt": isoformat(timezone.now()),
+        "categories": [serialize_category(category) for category in categories],
         "decks": [serialize_deck(deck) for deck in decks],
+    }
+
+
+def serialize_category(category) -> dict:
+    return {
+        "id": str(category.id),
+        "name": category.name,
+        "description": category.description,
+        "createdAt": isoformat(category.created_at),
+        "updatedAt": isoformat(category.updated_at),
     }
 
 
@@ -725,6 +788,10 @@ def serialize_deck(deck) -> dict:
         "id": str(deck.id),
         "name": deck.name,
         "description": deck.description,
+        "categoryId": str(deck.category_id) if deck.category_id else None,
+        "isFavorite": deck.is_favorite,
+        "isPinned": deck.is_pinned,
+        "showTagsInReview": deck.show_tags_in_review,
         "createdAt": isoformat(deck.created_at),
         "updatedAt": isoformat(deck.updated_at),
         "cards": [serialize_card(card) for card in cards_for_deck(deck)],
@@ -770,18 +837,50 @@ def parse_iso_datetime(value: str):
     return parsed
 
 
+def bool_from_backup(value, default=False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
 def import_backup(payload) -> dict[str, int]:
-    from .models import Card, Deck
+    from .models import Card, Category, Deck
 
     data = parse_backup_payload(payload)
     counts = {"decks": 0, "cards": 0}
+    category_by_id = {}
+
+    for category_data in data.get("categories", []):
+        category_id = UUID(category_data["id"])
+        category, _ = Category.objects.update_or_create(
+            id=category_id,
+            defaults={
+                "name": category_data.get("name", ""),
+                "description": category_data.get("description", ""),
+            },
+        )
+        restore_timestamps(Category, category.id, category_data)
+        category_by_id[str(category.id)] = category
+
     for deck_data in data.get("decks", []):
         deck_id = UUID(deck_data["id"])
+        category = None
+        category_id = deck_data.get("categoryId")
+        if category_id:
+            category = category_by_id.get(str(category_id)) or Category.objects.filter(id=category_id).first()
         deck, _ = Deck.objects.update_or_create(
             id=deck_id,
             defaults={
                 "name": deck_data.get("name", ""),
                 "description": deck_data.get("description", ""),
+                "category": category,
+                "is_favorite": bool_from_backup(deck_data.get("isFavorite"), False),
+                "is_pinned": bool_from_backup(deck_data.get("isPinned"), False),
+                "show_tags_in_review": bool_from_backup(deck_data.get("showTagsInReview"), False),
             },
         )
         restore_timestamps(Deck, deck.id, deck_data)

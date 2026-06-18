@@ -14,10 +14,12 @@ from .services import (
     add_tags_to_cards,
     apply_review_action,
     cards_for_deck,
+    categories_queryset,
     clear_review_session,
     copy_cards_to_deck,
     create_cards_from_parsed,
     current_review_card,
+    deck_home_groups,
     decks_queryset,
     export_backup,
     filter_cards_for_deck,
@@ -35,6 +37,8 @@ from .services import (
     review_progress,
     session_deck,
     start_review_session,
+    toggle_deck_favorite,
+    toggle_deck_pin,
     unmark_card,
     undo_last_review_action,
 )
@@ -47,7 +51,12 @@ def htmx_redirect(to):
 
 
 def home(request):
-    return render(request, "cards/home.html", {"decks": decks_queryset()})
+    groups = deck_home_groups()
+    return render(
+        request,
+        "cards/home.html",
+        groups,
+    )
 
 
 def deck_detail(request, deck_id):
@@ -111,12 +120,7 @@ def deck_create(request):
         if form.is_valid():
             deck = form.save()
             if request.htmx:
-                return render(
-                    request,
-                    "cards/partials/deck_create_success.html",
-                    {"deck": deck},
-                    status=201,
-                )
+                return htmx_redirect(reverse("cards:home"))
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
         form = DeckForm()
@@ -130,6 +134,7 @@ def deck_create(request):
             "title": "New deck",
             "submit_label": "Create deck",
             "action_url": reverse("cards:deck_create"),
+            "category_names": list(categories_queryset().values_list("name", flat=True)),
         },
         status=422 if request.method == "POST" else 200,
     )
@@ -157,6 +162,7 @@ def deck_edit(request, deck_id):
             "title": "Edit deck",
             "submit_label": "Save deck",
             "action_url": reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
+            "category_names": list(categories_queryset().values_list("name", flat=True)),
         },
         status=422 if request.method == "POST" else 200,
     )
@@ -168,6 +174,24 @@ def deck_delete(request, deck_id):
     deck.delete()
     if request.htmx:
         return htmx_redirect(reverse("cards:home"))
+    return redirect("cards:home")
+
+
+@require_POST
+def deck_toggle_pin(request, deck_id):
+    deck = get_deck(deck_id)
+    toggle_deck_pin(deck)
+    if request.htmx:
+        return htmx_redirect(reverse("cards:home"))
+    return redirect("cards:home")
+
+
+@require_POST
+def deck_toggle_favorite(request, deck_id):
+    deck = get_deck(deck_id)
+    toggle_deck_favorite(deck)
+    if request.htmx:
+        return render(request, "cards/partials/deck_card.html", {"deck": deck})
     return redirect("cards:home")
 
 

@@ -124,6 +124,18 @@ class RenderingTests(TestCase):
         self.assertIn("list-style-type: decimal", css)
         self.assertIn("padding-inline-start", css)
 
+    def test_rendered_math_has_mobile_overflow_guards(self):
+        css = Path("static_src/input.css").read_text()
+
+        self.assertIn(".fc-rendered-content :where(.arithmatex, .katex-display)", css)
+        self.assertIn("querySelector('.katex-html')", Path("templates/base.html").read_text())
+        self.assertIn(".fc-math-display-frame", css)
+        self.assertIn(".fc-math-inline-frame", css)
+        self.assertIn("--fc-math-scale", css)
+        self.assertIn(":has(.fc-math-fit-subject)", css)
+        self.assertIn("overflow-x: auto", css)
+        self.assertIn("-webkit-overflow-scrolling: touch", css)
+
 
 class PreviewViewTests(TestCase):
     def setUp(self):
@@ -188,8 +200,13 @@ class PreviewViewTests(TestCase):
         response = self.client.get(reverse("cards:home"))
         html = response.content.decode()
 
+        self.assertIn("window.flashcramFitMath = function(root)", html)
         self.assertIn("querySelectorAll('[data-render-math=\"true\"]')", html)
+        self.assertIn("window.flashcramFitMath(scope)", html)
         self.assertIn("window.flashcramRenderMath(document)", html)
+        self.assertIn('document.addEventListener("htmx:afterSwap"', html)
+        self.assertIn('window.addEventListener("resize", window.flashcramRefitMath)', html)
+        self.assertIn('window.addEventListener("orientationchange", window.flashcramRefitMath)', html)
         self.assertNotIn("flashcramRenderMath(document.body)", html)
         self.assertNotIn("renderMathInElement(root || document.body", html)
 

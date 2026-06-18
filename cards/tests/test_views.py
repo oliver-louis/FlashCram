@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from pathlib import Path
 
-from cards.models import Card, Deck, Settings
+from cards.models import Card, Category, Deck, Settings
 from cards.services import REVIEW_SESSION_KEY
 
 
@@ -40,6 +40,8 @@ class DeckCrudViewTests(TestCase):
         self.assertContains(response, "line-clamp-2 break-words")
         self.assertContains(response, f'href="{reverse("cards:review_start", kwargs={"deck_id": deck.id})}"')
         self.assertContains(response, ">Review</a>")
+        self.assertContains(response, "1 card ready")
+        self.assertNotContains(response, "Ready for quick review")
         self.assertContains(response, "sm:hidden")
         self.assertContains(response, "hidden grid-cols-3")
 
@@ -50,8 +52,8 @@ class DeckCrudViewTests(TestCase):
             **HTMX,
         )
 
-        self.assertEqual(response.status_code, 201)
-        self.assertContains(response, "Networking", status_code=201)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.headers["HX-Redirect"], reverse("cards:home"))
         self.assertEqual(Deck.objects.count(), 1)
 
     def test_deck_edit_htmx_returns_header_fragment(self):
@@ -108,6 +110,146 @@ class DeckCrudViewTests(TestCase):
         deck.refresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(deck.show_tags_in_review)
+
+    def test_deck_create_and_edit_save_category_pin_and_favorite_fields(self):
+        category = Category.objects.create(name="Existing")
+
+        create = self.client.post(
+            reverse("cards:deck_create"),
+            {
+                "name": "Organized",
+                "description": "",
+                "category_name": "existing",
+                "is_pinned": "on",
+                "is_favorite": "on",
+            },
+            **HTMX,
+        )
+        deck = Deck.objects.get(name="Organized")
+        self.assertEqual(create.status_code, 204)
+        self.assertEqual(deck.category, category)
+        self.assertTrue(deck.is_pinned)
+        self.assertTrue(deck.is_favorite)
+
+        edit = self.client.post(
+            reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
+            {
+                "name": "Organized",
+                "description": "",
+                "category_name": "New course",
+            },
+            **HTMX,
+        )
+        deck.refresh_from_db()
+        self.assertEqual(edit.status_code, 200)
+        self.assertEqual(deck.category.name, "New course")
+        self.assertFalse(deck.is_pinned)
+        self.assertFalse(deck.is_favorite)
+
+        clear = self.client.post(
+            reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
+            {
+                "name": "Organized",
+                "description": "",
+                "category_name": "",
+            },
+            **HTMX,
+        )
+        deck.refresh_from_db()
+        self.assertEqual(clear.status_code, 200)
+        self.assertIsNone(deck.category)
+
+    def test_deck_form_combobox_reuses_categories_case_insensitively(self):
+        category = Category.objects.create(name="CSSE2310")
+
+        response = self.client.post(
+            reverse("cards:deck_create"),
+            {"name": "Exam", "description": "", "category_name": "csse2310"},
+            **HTMX,
+        )
+
+        deck = Deck.objects.get(name="Exam")
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(deck.category, category)
+        self.assertEqual(Category.objects.count(), 1)
+
+    def test_deck_form_renders_single_category_combobox(self):
+        Category.objects.create(name="CSSE2310")
+
+        response = self.client.get(reverse("cards:deck_create"), **HTMX)
+
+        self.assertContains(response, 'name="category_name"')
+        self.assertContains(response, "categoryQuery")
+        self.assertContains(response, "@keydown.enter")
+        self.assertContains(response, "Create new")
+        self.assertContains(response, "No category")
+        self.assertNotContains(response, 'name="category"')
+        self.assertNotContains(response, "new_category_name")
+
+    def test_home_without_categories_uses_flat_deck_grid(self):
+        Deck.objects.create(name="Plain deck")
+
+        response = self.client.get(reverse("cards:home"))
+
+        self.assertContains(response, "Plain deck")
+        self.assertNotContains(response, "Course groups")
+        self.assertNotContains(response, "Categories")
+        self.assertNotContains(response, "Uncategorized")
+
+    def test_empty_category_records_do_not_change_home_layout(self):
+        Category.objects.create(name="Unused")
+        Deck.objects.create(name="Plain deck")
+
+        response = self.client.get(reverse("cards:home"))
+
+        self.assertContains(response, "Plain deck")
+        self.assertNotContains(response, "Unused")
+        self.assertNotContains(response, "Uncategorized")
+
+    def test_pinned_deck_without_categories_keeps_other_decks_flat(self):
+        Deck.objects.create(name="Pinned deck", is_pinned=True)
+        Deck.objects.create(name="Loose deck")
+
+        response = self.client.get(reverse("cards:home"))
+
+        self.assertContains(response, "Pinned")
+        self.assertContains(response, "Pinned deck")
+        self.assertContains(response, "Loose deck")
+        self.assertNotContains(response, "Uncategorized")
+
+    def test_home_renders_pinned_category_and_uncategorized_sections(self):
+        course = Category.objects.create(name="CSSE2310")
+        pinned = Deck.objects.create(name="Pinned deck", category=course, is_pinned=True, is_favorite=True)
+        categorized = Deck.objects.create(name="Course deck", category=course)
+        loose = Deck.objects.create(name="Loose deck")
+
+        response = self.client.get(reverse("cards:home"))
+        html = response.content.decode()
+
+        self.assertContains(response, "Pinned")
+        self.assertContains(response, "Category")
+        self.assertContains(response, "CSSE2310")
+        self.assertContains(response, "Uncategorized")
+        self.assertContains(response, 'aria-label="Unfavourite deck"')
+        self.assertContains(response, 'aria-label="Pin deck"')
+        self.assertContains(response, reverse("cards:deck_toggle_pin", kwargs={"deck_id": pinned.id}))
+        self.assertContains(response, reverse("cards:deck_toggle_favorite", kwargs={"deck_id": categorized.id}))
+        self.assertLess(html.index("Pinned deck"), html.index("Course deck"))
+        self.assertLess(html.index("Course deck"), html.index("Loose deck"))
+
+    def test_deck_pin_and_favorite_toggle_endpoints(self):
+        deck = Deck.objects.create(name="Toggle")
+
+        pin = self.client.post(reverse("cards:deck_toggle_pin", kwargs={"deck_id": deck.id}), **HTMX)
+        deck.refresh_from_db()
+        self.assertTrue(deck.is_pinned)
+        self.assertEqual(pin.status_code, 204)
+        self.assertEqual(pin.headers["HX-Redirect"], reverse("cards:home"))
+
+        favorite = self.client.post(reverse("cards:deck_toggle_favorite", kwargs={"deck_id": deck.id}), **HTMX)
+        deck.refresh_from_db()
+        self.assertTrue(deck.is_favorite)
+        self.assertContains(favorite, 'aria-label="Unfavourite deck"')
 
     def test_deck_delete_htmx_cascades_cards_and_redirects(self):
         deck = Deck.objects.create(name="Delete me")
@@ -212,8 +354,13 @@ class CardCrudViewTests(TestCase):
         )
 
         self.assertContains(response, 'id="card-preview-modal"')
+        self.assertContains(response, '@click.self="open = false"')
         self.assertContains(response, "Card preview")
-        self.assertContains(response, "Tap to reveal")
+        self.assertContains(response, "Tap card to reveal")
+        self.assertContains(response, "toggleReveal()")
+        self.assertContains(response, "flashcramFitMath?.(this.$root)")
+        self.assertContains(response, "revealed ? 'Back' : 'Flip'")
+        self.assertContains(response, ">Flip</span>")
         self.assertContains(response, "<strong>bold</strong>", html=True)
         self.assertNotContains(response, "<!doctype html>")
 
@@ -335,7 +482,10 @@ class ReviewAllViewTests(TestCase):
         first = self.make_card("first")
         second = self.make_card("second")
         start = self.start_review()
-        self.assertContains(start, "Tap to flip back")
+        self.assertContains(start, "Tap card to flip back")
+        self.assertContains(start, "toggleReveal()")
+        self.assertContains(start, "flashcramFitMath?.(this.$root)")
+        self.assertContains(start, "revealed ? 'Back' : 'Flip'")
         self.assertContains(start, "Skip")
 
         response = self.grade("skip")
@@ -369,7 +519,7 @@ class ReviewAllViewTests(TestCase):
         self.assertEqual(card.times_reviewed, 0)
         self.assertEqual(session["cursor"], 0)
         self.assertContains(response, "revealed: true")
-        self.assertContains(response, "Marked")
+        self.assertContains(response, "Marked card")
         self.assertContains(response, "first")
 
     def test_review_screen_initializes_tag_visibility_from_deck_default(self):
@@ -719,9 +869,15 @@ class PhaseTwoViewTests(TestCase):
         response = self.client.get(reverse("cards:bulk_import"))
 
         self.assertContains(response, "Raw text")
-        self.assertContains(response, "Authoring JSON")
+        self.assertContains(response, "JSON Import")
+        self.assertContains(response, "Upload cards from structured .json")
+        self.assertContains(response, "Intended for card sets generated by AI/LLMs or other tools")
         self.assertContains(response, "Accepted raw-text formats")
-        self.assertContains(response, "Accepted authoring JSON format")
+        self.assertContains(response, "Accepted JSON import format")
+        self.assertContains(response, "Prompt for generating FlashCram JSON")
+        self.assertContains(response, "Copy prompt")
+        self.assertContains(response, "Escape all LaTeX backslashes inside JSON strings.")
+        self.assertContains(response, "Do not include ids, counters, timestamps, image fields, status fields, or backup/export fields.")
         self.assertContains(response, "flashcram.cards.v1")
         self.assertContains(response, "Backup JSON files should be imported from Settings")
 
@@ -762,7 +918,7 @@ class PhaseTwoViewTests(TestCase):
                 ),
             },
         )
-        self.assertContains(preview, "Authoring JSON preview")
+        self.assertContains(preview, "JSON import preview")
         self.assertContains(preview, "2 cards detected")
         self.assertContains(preview, "File deck: Ignored file deck")
         self.assertEqual(Card.objects.count(), 0)

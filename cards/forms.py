@@ -2,24 +2,75 @@ import json
 
 from django import forms
 
-from .models import Card, Deck, Settings
+from .models import Card, Category, Deck, Settings
 from .services import ImageProcessingError, get_settings, normalize_tags, process_image_upload
 
 
 class DeckForm(forms.ModelForm):
+    category_name = forms.CharField(
+        required=False,
+        label="Category",
+        widget=forms.TextInput(
+            attrs={
+                "class": "input input-bordered h-14 w-full rounded-2xl",
+                "placeholder": "No category",
+                "autocomplete": "off",
+                "x-model": "categoryQuery",
+                "@focus": "categoryOpen = true",
+                "@input": "categoryOpen = true",
+                "@keydown.enter": "categoryOpen = false",
+                "@blur": "setTimeout(() => categoryOpen = false, 120)",
+            }
+        ),
+    )
+
     class Meta:
         model = Deck
-        fields = ["name", "description", "show_tags_in_review"]
+        fields = [
+            "name",
+            "description",
+            "category_name",
+            "is_pinned",
+            "is_favorite",
+            "show_tags_in_review",
+        ]
         widgets = {
             "name": forms.TextInput(attrs={"class": "input input-bordered h-14 w-full rounded-2xl"}),
             "description": forms.Textarea(
                 attrs={"class": "textarea textarea-bordered min-h-28 w-full rounded-2xl", "rows": 3}
             ),
+            "is_pinned": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+            "is_favorite": forms.CheckboxInput(attrs={"class": "toggle toggle-secondary"}),
             "show_tags_in_review": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
         }
         labels = {
+            "category_name": "Category",
+            "is_pinned": "Pin this deck",
+            "is_favorite": "Favourite this deck",
             "show_tags_in_review": "Show tags by default during review",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.category:
+            self.fields["category_name"].initial = self.instance.category.name
+
+    def clean_category_name(self):
+        return (self.cleaned_data.get("category_name") or "").strip()
+
+    def save(self, commit=True):
+        deck = super().save(commit=False)
+        category_name = self.cleaned_data.get("category_name", "")
+        if category_name:
+            category = Category.objects.filter(name__iexact=category_name).first()
+            if category is None:
+                category = Category.objects.create(name=category_name)
+            deck.category = category
+        else:
+            deck.category = None
+        if commit:
+            deck.save()
+        return deck
 
 
 class CardForm(forms.ModelForm):

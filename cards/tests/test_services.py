@@ -3,14 +3,17 @@ import random
 
 from django.test import TestCase
 
-from cards.models import Card, Deck, Settings
+from cards.models import Card, Category, Deck, Settings
 from cards.services import (
     cards_for_review_mode,
     create_cards_from_parsed,
+    deck_home_groups,
     export_backup,
     import_backup,
     parse_authoring_json_cards,
     parse_bulk_cards,
+    toggle_deck_favorite,
+    toggle_deck_pin,
     weighted_shuffle,
 )
 
@@ -180,9 +183,74 @@ class BulkParserTests(TestCase):
         self.assertEqual(Card.objects.get().content_format, Card.ContentFormat.MARKDOWN)
 
 
+class DeckOrganizationServiceTests(TestCase):
+    def test_grouping_orders_pinned_then_categories_then_uncategorized_without_duplicates(self):
+        science = Category.objects.create(name="Science")
+        maths = Category.objects.create(name="Maths")
+        pinned = Deck.objects.create(name="Pinned", category=science, is_pinned=True)
+        maths_deck = Deck.objects.create(name="Algebra", category=maths)
+        science_deck = Deck.objects.create(name="Physics", category=science)
+        loose = Deck.objects.create(name="Loose")
+
+        groups = deck_home_groups()
+
+        self.assertEqual(groups["pinned"], [pinned])
+        self.assertEqual([group["category"] for group in groups["category_groups"]], [maths, science])
+        self.assertEqual(groups["category_groups"][0]["decks"], [maths_deck])
+        self.assertEqual(groups["category_groups"][1]["decks"], [science_deck])
+        self.assertEqual(groups["uncategorized"], [loose])
+        self.assertNotIn(pinned, groups["category_groups"][1]["decks"])
+        self.assertTrue(groups["has_categories"])
+        self.assertTrue(groups["show_grouped_home"])
+
+    def test_grouping_ignores_empty_category_records(self):
+        Category.objects.create(name="Unused")
+        loose = Deck.objects.create(name="Loose")
+
+        groups = deck_home_groups()
+
+        self.assertEqual(groups["pinned"], [])
+        self.assertEqual(groups["category_groups"], [])
+        self.assertEqual(groups["uncategorized"], [loose])
+        self.assertFalse(groups["has_categories"])
+        self.assertFalse(groups["show_grouped_home"])
+
+    def test_grouping_with_pins_and_no_categories_keeps_unpinned_decks(self):
+        pinned = Deck.objects.create(name="Pinned", is_pinned=True)
+        loose = Deck.objects.create(name="Loose")
+
+        groups = deck_home_groups()
+
+        self.assertEqual(groups["pinned"], [pinned])
+        self.assertEqual(groups["category_groups"], [])
+        self.assertEqual(groups["uncategorized"], [loose])
+        self.assertFalse(groups["has_categories"])
+        self.assertTrue(groups["show_grouped_home"])
+
+    def test_pin_and_favorite_toggles_are_independent(self):
+        deck = Deck.objects.create(name="Flags")
+
+        toggle_deck_pin(deck)
+        deck.refresh_from_db()
+        self.assertTrue(deck.is_pinned)
+        self.assertFalse(deck.is_favorite)
+
+        toggle_deck_favorite(deck)
+        deck.refresh_from_db()
+        self.assertTrue(deck.is_pinned)
+        self.assertTrue(deck.is_favorite)
+
+
 class JsonBackupTests(TestCase):
     def test_export_import_round_trip_and_reimport_does_not_duplicate(self):
-        deck = Deck.objects.create(name="Backup", description="Round trip")
+        category = Category.objects.create(name="Course", description="Term 1")
+        deck = Deck.objects.create(
+            name="Backup",
+            description="Round trip",
+            category=category,
+            is_favorite=True,
+            is_pinned=True,
+        )
         card = Card.objects.create(
             deck=deck,
             front="Front",
@@ -197,7 +265,12 @@ class JsonBackupTests(TestCase):
         payload = export_backup()
 
         self.assertEqual(payload["version"], 1)
+        self.assertEqual(payload["categories"][0]["id"], str(category.id))
+        self.assertEqual(payload["categories"][0]["name"], "Course")
         self.assertEqual(payload["decks"][0]["id"], str(deck.id))
+        self.assertEqual(payload["decks"][0]["categoryId"], str(category.id))
+        self.assertTrue(payload["decks"][0]["isFavorite"])
+        self.assertTrue(payload["decks"][0]["isPinned"])
         self.assertEqual(payload["decks"][0]["cards"][0]["contentFormat"], "plaintext")
         self.assertTrue(payload["decks"][0]["cards"][0]["isMarked"])
 
@@ -208,11 +281,35 @@ class JsonBackupTests(TestCase):
         restored_deck = Deck.objects.get(id=deck.id)
         restored_card = Card.objects.get(id=card.id)
         self.assertEqual(restored_deck.name, "Backup")
+        self.assertEqual(restored_deck.category.name, "Course")
+        self.assertTrue(restored_deck.is_favorite)
+        self.assertTrue(restored_deck.is_pinned)
         self.assertEqual(restored_card.tags, ["shell"])
         self.assertEqual(restored_card.times_wrong, 1)
         self.assertEqual(restored_card.status, Card.Status.LESS)
         self.assertTrue(restored_card.is_marked)
 
         import_backup(payload)
+        self.assertEqual(Category.objects.count(), 1)
         self.assertEqual(Deck.objects.count(), 1)
         self.assertEqual(Card.objects.count(), 1)
+
+    def test_import_older_backup_defaults_deck_organization_fields(self):
+        payload = {
+            "version": 1,
+            "decks": [
+                {
+                    "id": "00000000-0000-0000-0000-000000000001",
+                    "name": "Old",
+                    "description": "",
+                    "cards": [],
+                }
+            ],
+        }
+
+        import_backup(payload)
+
+        deck = Deck.objects.get()
+        self.assertIsNone(deck.category)
+        self.assertFalse(deck.is_favorite)
+        self.assertFalse(deck.is_pinned)

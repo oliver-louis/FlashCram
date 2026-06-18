@@ -5,16 +5,40 @@ from django.db import models
 from .services import get_settings, is_weak_card, normalize_tags
 
 
+class Category(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=120, unique=True)
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "created_at"]
+        verbose_name_plural = "categories"
+
+    def __str__(self):
+        return self.name
+
+
 class Deck(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        related_name="decks",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, default="")
+    is_favorite = models.BooleanField(default=False)
+    is_pinned = models.BooleanField(default=False)
     show_tags_in_review = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["created_at", "name"]
+        ordering = ["-is_pinned", "category__name", "created_at", "name"]
 
     def __str__(self):
         return self.name
