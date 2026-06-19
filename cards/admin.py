@@ -33,8 +33,18 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Deck)
 class DeckAdmin(admin.ModelAdmin):
-    list_display = ("name", "owner", "category", "is_pinned", "is_favorite", "card_count", "created_at", "updated_at")
-    list_filter = ("owner", "category", "is_pinned", "is_favorite")
+    list_display = (
+        "name",
+        "owner",
+        "category",
+        "is_pinned",
+        "is_favorite",
+        "is_archived",
+        "card_count",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("owner", "category", "is_pinned", "is_favorite", "is_archived")
     search_fields = ("name", "description", "category__name", "owner__username", "owner__email")
     inlines = [CardInline]
 

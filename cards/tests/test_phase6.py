@@ -100,11 +100,12 @@ class MultiUserScopingTests(TestCase):
 
 
 class AuthFlowTests(TestCase):
-    def test_anonymous_app_request_redirects_to_oidc_login(self):
+    def test_anonymous_app_request_redirects_to_login_page(self):
         response = Client().get(reverse("cards:home"))
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("oidc_authentication_init"), response["Location"])
+        self.assertIn(reverse("login"), response["Location"])
+        self.assertNotIn(reverse("oidc_authentication_init"), response["Location"])
 
     def test_oidc_backend_creates_and_finds_user_from_claims(self):
         backend = FlashCramOIDCAuthenticationBackend()

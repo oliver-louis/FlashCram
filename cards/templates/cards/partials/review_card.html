@@ -1,9 +1,9 @@
-<section id="review-panel" class="flex min-h-[calc(100vh-7rem)] flex-col gap-4">
-  <header class="fc-glass rounded-3xl p-4">
+<section id="review-panel" class="fc-review-panel flex min-h-[calc(100dvh-5.5rem)] flex-col gap-3">
+  <header class="fc-review-status rounded-3xl px-4 py-3">
     <div class="flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <p class="truncate text-sm fc-muted">{{ deck.name }}</p>
-        <h1 class="truncate text-xl font-black">{{ session.mode_label }}</h1>
+      <div class="min-w-0 leading-tight">
+        <p class="truncate text-xs fc-muted">{{ deck.name }}</p>
+        <h1 class="truncate text-lg font-black">{{ session.mode_label }}</h1>
       </div>
       <div class="flex shrink-0 items-center gap-2">
         {% if can_undo %}
@@ -15,7 +15,7 @@
         <span class="badge badge-neutral badge-lg rounded-xl">{{ progress_current }} / {{ progress_total }}</span>
       </div>
     </div>
-    <progress class="progress progress-primary mt-4 h-2" value="{{ progress_current }}" max="{{ progress_total }}"></progress>
+    <progress class="progress progress-primary mt-2 h-1.5" value="{{ progress_current }}" max="{{ progress_total }}"></progress>
   </header>
 
   <div
@@ -24,7 +24,10 @@
       menuOpen: false,
       showTags: {{ show_tags_default|yesno:'true,false' }},
       refitMath() {
-        this.$nextTick(() => window.requestAnimationFrame(() => window.flashcramFitMath?.(this.$root)));
+        this.$nextTick(() => window.requestAnimationFrame(() => {
+          window.flashcramFitMath?.(this.$root);
+          window.flashcramFitReviewText?.(this.$root);
+        }));
       },
       toggleReveal() {
         this.revealed = !this.revealed;
@@ -32,9 +35,9 @@
       }
     }"
     x-init="refitMath()"
-    class="flex flex-1 flex-col gap-4"
+    class="flex min-h-0 flex-1 flex-col gap-3"
   >
-    <div role="button" tabindex="0" class="fc-review-card flex flex-1 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]" @click="toggleReveal()" @keydown.enter.prevent="toggleReveal()" @keydown.space.prevent="toggleReveal()">
+    <div role="button" tabindex="0" class="fc-review-card flex min-h-0 flex-1 flex-col rounded-3xl p-5 text-left transition active:scale-[0.99] sm:p-6" @click="toggleReveal()" @keydown.enter.prevent="toggleReveal()" @keydown.space.prevent="toggleReveal()">
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
         <div class="flex items-center gap-2">
@@ -43,36 +46,44 @@
               <span aria-hidden="true">★</span>
             </span>
           {% endif %}
-          {% if card.tags %}
-            <button class="btn btn-ghost btn-sm rounded-2xl" type="button" @click.stop="showTags = !showTags" :class="showTags ? 'btn-active' : ''">Tags</button>
-          {% endif %}
           <span class="badge badge-outline min-w-14 rounded-xl text-center" x-text="revealed ? 'Back' : 'Flip'" :aria-label="revealed ? 'Tap card to flip back to the front' : 'Tap card to reveal the back'" :title="revealed ? 'Tap card to flip back' : 'Tap card to reveal'">Flip</span>
           <form method="post" action="{% url 'cards:review_grade' 'skip' %}" @click.stop>
             {% csrf_token %}
-            <button class="btn btn-ghost btn-sm rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'skip' %}" hx-target="#review-panel" hx-swap="outerHTML" aria-label="Skip this card">Skip</button>
+            <button class="btn btn-ghost btn-sm btn-square rounded-2xl text-xl" type="submit" hx-post="{% url 'cards:review_grade' 'skip' %}" hx-target="#review-panel" hx-swap="outerHTML" aria-label="Skip this card" title="Skip this card">
+              <span aria-hidden="true">→</span>
+            </button>
           </form>
         </div>
       </div>
+      <div class="fc-review-content mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pr-1">
+        <div class="fc-review-face text-2xl leading-tight sm:text-3xl" x-show="!revealed">
+          <div class="fc-review-face-inner">
+            {% with rendered_face=rendered_front %}
+              {% include "cards/partials/rendered_face.html" %}
+            {% endwith %}
+          </div>
+        </div>
+        <div class="fc-review-face text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
+          <div class="fc-review-face-inner">
+            {% with rendered_face=rendered_back %}
+              {% include "cards/partials/rendered_face.html" %}
+            {% endwith %}
+          </div>
+        </div>
+      </div>
       {% if card.tags %}
-        <div class="mt-4 flex flex-wrap gap-2" x-cloak x-show="showTags">
-          {% for tag in card.tags %}
-            <span class="badge badge-outline rounded-xl">{{ tag }}</span>
-          {% endfor %}
+        <div class="fc-review-tags mt-3 border-t border-base-content/10 pt-3" @click.stop>
+          <button class="btn btn-ghost btn-xs rounded-2xl" type="button" @click="showTags = !showTags" :class="showTags ? 'btn-active' : ''">Tags</button>
+          <div class="mt-2 flex flex-wrap gap-2" x-cloak x-show="showTags">
+            {% for tag in card.tags %}
+              <span class="badge badge-outline rounded-xl">{{ tag }}</span>
+            {% endfor %}
+          </div>
         </div>
       {% endif %}
-      <div class="mt-8 flex flex-1 flex-col justify-center text-2xl leading-tight sm:text-3xl" x-show="!revealed">
-        {% with rendered_face=rendered_front %}
-          {% include "cards/partials/rendered_face.html" %}
-        {% endwith %}
-      </div>
-      <div class="mt-8 flex flex-1 flex-col justify-center text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
-        {% with rendered_face=rendered_back %}
-          {% include "cards/partials/rendered_face.html" %}
-        {% endwith %}
-      </div>
     </div>
 
-    <div class="fc-bottom-actions sticky bottom-0 z-30 grid gap-3" x-cloak x-show="revealed">
+    <div class="fc-bottom-actions sticky bottom-0 z-40" x-cloak x-show="revealed">
       {% if is_hidden_mode %}
         <div class="grid grid-cols-2 gap-3">
           <form method="post" action="{% url 'cards:review_grade' 'restore' %}">
@@ -98,7 +109,7 @@
             <span class="text-xl leading-none transition-transform" :class="menuOpen ? 'rotate-180' : ''">⌃</span>
           </button>
         </div>
-        <div class="grid gap-3 rounded-3xl border border-base-content/10 bg-base-200/70 p-3 sm:grid-cols-4" x-cloak x-show="menuOpen" x-transition>
+        <div class="absolute bottom-full right-0 mb-3 grid w-full gap-3 rounded-3xl border border-base-content/10 bg-base-200/95 p-3 shadow-2xl shadow-black/25 backdrop-blur sm:grid-cols-4" x-cloak x-show="menuOpen" x-transition @click.outside="menuOpen = false">
           <form method="post" action="{% url 'cards:review_grade' 'show_less' %}">
             {% csrf_token %}
             <button class="btn btn-info fc-tap w-full rounded-2xl" type="submit" hx-post="{% url 'cards:review_grade' 'show_less' %}" hx-target="#review-panel" hx-swap="outerHTML">Show Less</button>

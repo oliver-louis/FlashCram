@@ -6,15 +6,19 @@ from django.test import TestCase
 from cards.models import Card, Category, Deck, Settings
 from cards.tests.utils import create_category, create_deck, test_user
 from cards.services import (
+    archive_deck,
+    archived_decks_queryset,
     cards_for_review_mode,
     create_cards_from_parsed,
     deck_home_groups,
+    decks_queryset,
     export_backup,
     import_backup,
     parse_authoring_json_cards,
     parse_bulk_cards,
     toggle_deck_favorite,
     toggle_deck_pin,
+    restore_deck,
     weighted_shuffle,
     get_settings,
 )
@@ -244,6 +248,41 @@ class DeckOrganizationServiceTests(TestCase):
         self.assertTrue(deck.is_pinned)
         self.assertTrue(deck.is_favorite)
 
+    def test_archive_and_restore_toggles_deck_visibility(self):
+        deck = create_deck(name="Old")
+
+        archive_deck(deck)
+        deck.refresh_from_db()
+        self.assertTrue(deck.is_archived)
+        self.assertNotIn(deck, list(decks_queryset()))
+        self.assertIn(deck, list(archived_decks_queryset()))
+
+        restore_deck(deck)
+        deck.refresh_from_db()
+        self.assertFalse(deck.is_archived)
+        self.assertIn(deck, list(decks_queryset()))
+        self.assertNotIn(deck, list(archived_decks_queryset()))
+
+    def test_home_grouping_excludes_archived_decks(self):
+        category = create_category(name="Course")
+        active = create_deck(name="Active", category=category)
+        archived = create_deck(name="Archived", category=category, is_archived=True, is_pinned=True)
+
+        groups = deck_home_groups()
+
+        self.assertEqual(groups["pinned"], [])
+        self.assertEqual(groups["category_groups"][0]["decks"], [active])
+        self.assertNotIn(archived, groups["category_groups"][0]["decks"])
+
+    def test_archived_decks_queryset_is_user_scoped(self):
+        user_a = test_user("archive-a")
+        user_b = test_user("archive-b")
+        own = create_deck(name="Own archive", owner=user_a, is_archived=True)
+        create_deck(name="Other archive", owner=user_b, is_archived=True)
+        create_deck(name="Own active", owner=user_a)
+
+        self.assertEqual(list(archived_decks_queryset(user_a)), [own])
+
 
 class JsonBackupTests(TestCase):
     def test_export_import_round_trip_and_reimport_does_not_duplicate(self):
@@ -256,6 +295,7 @@ class JsonBackupTests(TestCase):
             category=category,
             is_favorite=True,
             is_pinned=True,
+            is_archived=True,
         )
         card = Card.objects.create(
             deck=deck,
@@ -277,6 +317,7 @@ class JsonBackupTests(TestCase):
         self.assertEqual(payload["decks"][0]["categoryId"], str(category.id))
         self.assertTrue(payload["decks"][0]["isFavorite"])
         self.assertTrue(payload["decks"][0]["isPinned"])
+        self.assertTrue(payload["decks"][0]["isArchived"])
         self.assertEqual(payload["decks"][0]["cards"][0]["contentFormat"], "plaintext")
         self.assertTrue(payload["decks"][0]["cards"][0]["isMarked"])
 
@@ -290,6 +331,7 @@ class JsonBackupTests(TestCase):
         self.assertEqual(restored_deck.category.name, "Course")
         self.assertTrue(restored_deck.is_favorite)
         self.assertTrue(restored_deck.is_pinned)
+        self.assertTrue(restored_deck.is_archived)
         self.assertEqual(restored_card.tags, ["shell"])
         self.assertEqual(restored_card.times_wrong, 1)
         self.assertEqual(restored_card.status, Card.Status.LESS)
@@ -321,3 +363,4 @@ class JsonBackupTests(TestCase):
         self.assertIsNone(deck.category)
         self.assertFalse(deck.is_favorite)
         self.assertFalse(deck.is_pinned)
+        self.assertFalse(deck.is_archived)

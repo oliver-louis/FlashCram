@@ -12,6 +12,8 @@ from .services import (
     REVIEW_ALL_MODE,
     REVIEW_HIDDEN_MODE,
     add_tags_to_cards,
+    archive_deck,
+    archived_decks_queryset,
     apply_review_action,
     cards_for_deck,
     categories_queryset,
@@ -33,6 +35,7 @@ from .services import (
     parse_authoring_json_cards,
     parse_bulk_cards,
     remove_card_from_active_review,
+    restore_deck,
     review_is_complete,
     review_progress,
     session_deck,
@@ -56,6 +59,14 @@ def home(request):
         request,
         "cards/home.html",
         groups,
+    )
+
+
+def archived_decks(request):
+    return render(
+        request,
+        "cards/archived_decks.html",
+        {"decks": archived_decks_queryset(request.user)},
     )
 
 
@@ -175,6 +186,24 @@ def deck_delete(request, deck_id):
     if request.htmx:
         return htmx_redirect(reverse("cards:home"))
     return redirect("cards:home")
+
+
+@require_POST
+def deck_archive(request, deck_id):
+    deck = get_deck(deck_id, request.user)
+    archive_deck(deck)
+    if request.htmx:
+        return htmx_redirect(reverse("cards:home"))
+    return redirect("cards:home")
+
+
+@require_POST
+def deck_restore(request, deck_id):
+    deck = get_deck(deck_id, request.user)
+    restore_deck(deck)
+    if request.htmx:
+        return htmx_redirect(reverse("cards:archived_decks"))
+    return redirect("cards:archived_decks")
 
 
 @require_POST

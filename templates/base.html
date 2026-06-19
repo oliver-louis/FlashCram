@@ -120,6 +120,51 @@
         });
       };
 
+      window.flashcramFitReviewText = function(root) {
+        const scope = root || document;
+        const contents = new Set();
+        if (scope.matches && scope.matches('#review-panel .fc-review-content')) {
+          contents.add(scope);
+        }
+        if (scope.querySelectorAll) {
+          scope.querySelectorAll('#review-panel .fc-review-content').forEach(function(content) {
+            contents.add(content);
+          });
+        }
+
+        contents.forEach(function(content) {
+          const faces = Array.from(content.querySelectorAll('.fc-review-face'));
+          faces.forEach(function(face) {
+            face.style.removeProperty('--fc-review-text-scale');
+            face.style.removeProperty('--fc-review-reserved-height');
+            face.classList.remove('fc-review-face-fit');
+          });
+
+          const visibleFace = faces.find(function(face) {
+            return face.getClientRects().length > 0 && window.getComputedStyle(face).display !== 'none';
+          });
+          if (!visibleFace) return;
+
+          const inner = visibleFace.querySelector('.fc-review-face-inner');
+          if (!inner) return;
+
+          const available = Math.floor(content.clientHeight || content.getBoundingClientRect().height || 0);
+          if (available <= 1) return;
+
+          const naturalHeight = Math.ceil(Math.max(inner.scrollHeight, inner.getBoundingClientRect().height));
+          if (!naturalHeight || naturalHeight <= available) return;
+
+          const minScale = 0.8;
+          const scale = Math.max(minScale, available / naturalHeight);
+          const scaledHeight = Math.ceil(naturalHeight * scale);
+          if (scaledHeight > available) return;
+
+          visibleFace.classList.add('fc-review-face-fit');
+          visibleFace.style.setProperty('--fc-review-text-scale', scale.toFixed(4));
+          visibleFace.style.setProperty('--fc-review-reserved-height', `${scaledHeight}px`);
+        });
+      };
+
       window.flashcramRenderMath = function(root) {
         if (!window.renderMathInElement) return;
         const scope = root || document;
@@ -144,6 +189,7 @@
         });
         window.requestAnimationFrame(function() {
           window.flashcramFitMath(scope);
+          window.flashcramFitReviewText(scope);
         });
       };
       let flashcramMathFitFrame = null;
@@ -153,6 +199,7 @@
         }
         flashcramMathFitFrame = window.requestAnimationFrame(function() {
           window.flashcramFitMath(document);
+          window.flashcramFitReviewText(document);
         });
       };
       document.addEventListener("DOMContentLoaded", function() {

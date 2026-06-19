@@ -12,6 +12,9 @@
         {% if deck.is_favorite %}
           <span class="badge badge-secondary rounded-xl">Favourite</span>
         {% endif %}
+        {% if deck.is_archived %}
+          <span class="badge badge-warning rounded-xl">Archived</span>
+        {% endif %}
       </div>
       <h1 class="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">{{ deck.name }}</h1>
       <p class="mt-2 max-w-2xl fc-muted">
@@ -38,7 +41,20 @@
   {% endif %}
 
   <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between" x-data="{ confirming: false, importOpen: false }">
-    <button class="btn btn-error btn-sm w-fit rounded-2xl" type="button" @click="confirming = true">Delete deck</button>
+    <div class="flex w-full flex-col gap-2 sm:w-auto">
+      {% if deck.is_archived %}
+        <form method="post" action="{% url 'cards:deck_restore' deck.id %}">
+          {% csrf_token %}
+          <button class="btn btn-outline btn-sm w-fit rounded-2xl" type="submit" hx-post="{% url 'cards:deck_restore' deck.id %}">Restore deck</button>
+        </form>
+      {% else %}
+        <form method="post" action="{% url 'cards:deck_archive' deck.id %}">
+          {% csrf_token %}
+          <button class="btn btn-outline btn-sm w-fit rounded-2xl" type="submit" hx-post="{% url 'cards:deck_archive' deck.id %}">Archive deck</button>
+        </form>
+      {% endif %}
+      <button class="btn btn-error btn-sm w-fit rounded-2xl" type="button" @click="confirming = true">Delete deck</button>
+    </div>
 
     <div class="relative self-stretch sm:self-auto">
       <button class="btn btn-outline fc-tap w-full rounded-2xl sm:w-auto" type="button" @click="importOpen = !importOpen" @click.outside="importOpen = false" aria-haspopup="true">

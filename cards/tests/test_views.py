@@ -238,6 +238,56 @@ class DeckCrudViewTests(AuthenticatedTestCase):
         self.assertLess(html.index("Pinned deck"), html.index("Course deck"))
         self.assertLess(html.index("Course deck"), html.index("Loose deck"))
 
+    def test_home_excludes_archived_decks_and_links_archived_view(self):
+        create_deck(name="Active deck")
+        create_deck(name="Retired deck", is_archived=True, is_pinned=True)
+
+        response = self.client.get(reverse("cards:home"))
+
+        self.assertContains(response, "Active deck")
+        self.assertNotContains(response, "Retired deck")
+        self.assertContains(response, reverse("cards:archived_decks"))
+        self.assertContains(response, "Archived decks")
+
+    def test_home_category_sections_are_collapsible_and_expanded_by_default(self):
+        course = create_category(name="CSSE2310")
+        create_deck(name="Course deck", category=course)
+
+        response = self.client.get(reverse("cards:home"))
+
+        self.assertContains(response, 'x-data="{ open: true }"')
+        self.assertContains(response, '@click="open = !open"')
+        self.assertContains(response, ':aria-expanded="open.toString()"')
+        self.assertContains(response, 'x-show="open"')
+
+    def test_archived_page_lists_only_archived_decks_with_restore_action(self):
+        active = create_deck(name="Active deck")
+        archived = create_deck(name="Archived deck", is_archived=True)
+
+        response = self.client.get(reverse("cards:archived_decks"))
+
+        self.assertContains(response, "Archived deck")
+        self.assertNotContains(response, "Active deck")
+        self.assertContains(response, reverse("cards:deck_detail", kwargs={"deck_id": archived.id}))
+        self.assertContains(response, reverse("cards:deck_restore", kwargs={"deck_id": archived.id}))
+        self.assertNotContains(response, reverse("cards:review_start", kwargs={"deck_id": archived.id}))
+        self.assertNotContains(response, reverse("cards:review_start", kwargs={"deck_id": active.id}))
+
+    def test_deck_detail_shows_archive_above_delete_and_restore_for_archived(self):
+        deck = create_deck(name="Archive me")
+
+        active_response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
+        active_html = active_response.content.decode()
+        self.assertContains(active_response, reverse("cards:deck_archive", kwargs={"deck_id": deck.id}))
+        self.assertLess(active_html.index("Archive deck"), active_html.index("Delete deck"))
+
+        deck.is_archived = True
+        deck.save(update_fields=["is_archived"])
+        archived_response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
+        self.assertContains(archived_response, "Archived")
+        self.assertContains(archived_response, reverse("cards:deck_restore", kwargs={"deck_id": deck.id}))
+        self.assertContains(archived_response, "Restore deck")
+
     def test_deck_pin_and_favorite_toggle_endpoints(self):
         deck = create_deck(name="Toggle")
 
@@ -251,6 +301,34 @@ class DeckCrudViewTests(AuthenticatedTestCase):
         deck.refresh_from_db()
         self.assertTrue(deck.is_favorite)
         self.assertContains(favorite, 'aria-label="Unfavourite deck"')
+
+    def test_deck_archive_and_restore_endpoints(self):
+        deck = create_deck(name="Archive")
+
+        archive = self.client.post(reverse("cards:deck_archive", kwargs={"deck_id": deck.id}), **HTMX)
+        deck.refresh_from_db()
+        self.assertTrue(deck.is_archived)
+        self.assertEqual(archive.status_code, 204)
+        self.assertEqual(archive.headers["HX-Redirect"], reverse("cards:home"))
+
+        restore = self.client.post(reverse("cards:deck_restore", kwargs={"deck_id": deck.id}), **HTMX)
+        deck.refresh_from_db()
+        self.assertFalse(deck.is_archived)
+        self.assertEqual(restore.status_code, 204)
+        self.assertEqual(restore.headers["HX-Redirect"], reverse("cards:archived_decks"))
+
+    def test_deck_archive_and_restore_are_owner_scoped(self):
+        other_user = test_user("other-archive-owner")
+        other_deck = create_deck(name="Other archive", owner=other_user)
+
+        self.assertEqual(
+            self.client.post(reverse("cards:deck_archive", kwargs={"deck_id": other_deck.id}), **HTMX).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post(reverse("cards:deck_restore", kwargs={"deck_id": other_deck.id}), **HTMX).status_code,
+            404,
+        )
 
     def test_deck_delete_htmx_cascades_cards_and_redirects(self):
         deck = create_deck(name="Delete me")
@@ -419,6 +497,13 @@ class ReviewAllViewTests(AuthenticatedTestCase):
         self.assertContains(response, "More review actions")
         self.assertContains(response, "grid-cols-[1fr_1fr_auto]")
         self.assertContains(response, "btn-square")
+        self.assertContains(response, "fc-review-status")
+        self.assertContains(response, "fc-review-panel")
+        self.assertContains(response, "fc-review-content")
+        self.assertContains(response, "fc-review-face")
+        self.assertContains(response, "fc-review-face-inner")
+        self.assertContains(response, "flashcramFitReviewText?.(this.$root)")
+        self.assertContains(response, "absolute bottom-full right-0 mb-3")
         self.assertContains(response, "Show Less")
         self.assertContains(response, "Mark")
         self.assertContains(response, "Edit")
@@ -489,7 +574,9 @@ class ReviewAllViewTests(AuthenticatedTestCase):
         self.assertContains(start, "toggleReveal()")
         self.assertContains(start, "flashcramFitMath?.(this.$root)")
         self.assertContains(start, "revealed ? 'Back' : 'Flip'")
-        self.assertContains(start, "Skip")
+        self.assertContains(start, 'aria-label="Skip this card"')
+        self.assertContains(start, "→")
+        self.assertNotContains(start, ">Skip</button>")
 
         response = self.grade("skip")
 
@@ -534,6 +621,7 @@ class ReviewAllViewTests(AuthenticatedTestCase):
 
         self.assertContains(response, "showTags: true")
         self.assertContains(response, ">Tags</button>")
+        self.assertContains(response, "fc-review-tags")
         self.assertContains(response, "exam")
         self.assertContains(response, "shell")
 
@@ -544,7 +632,17 @@ class ReviewAllViewTests(AuthenticatedTestCase):
 
         self.assertContains(response, "showTags: false")
         self.assertContains(response, ">Tags</button>")
+        self.assertContains(response, "fc-review-tags")
         self.assertContains(response, 'x-show="showTags"')
+
+    def test_review_tags_are_positioned_below_card_content(self):
+        self.make_card("tagged", tags=["exam"])
+
+        response = self.start_review()
+        html = response.content.decode()
+
+        self.assertNotIn("Tags</button>", html[html.index("flex items-center justify-between gap-3"):html.index("fc-review-content")])
+        self.assertLess(html.index("fc-review-content"), html.index("fc-review-tags"))
 
     def test_review_edit_updates_card_and_returns_to_session(self):
         card = self.make_card("old", tags=["before"])
@@ -649,6 +747,10 @@ class ReviewAllViewTests(AuthenticatedTestCase):
         self.assertContains(response, "Marked cards")
         self.assertContains(response, "Bulk actions")
         self.assertContains(response, "Select all")
+        self.assertContains(response, "Show actions")
+        self.assertContains(response, "bulkOpen: window.matchMedia")
+        self.assertContains(response, ':aria-expanded="bulkOpen.toString()"')
+        self.assertContains(response, 'x-show="bulkOpen"')
         self.assertContains(response, "Select deck")
         self.assertContains(response, "Unmark selected")
         self.assertContains(response, "toggleIds(allIds)")

@@ -52,6 +52,7 @@ class Deck(models.Model):
     description = models.TextField(blank=True, default="")
     is_favorite = models.BooleanField(default=False)
     is_pinned = models.BooleanField(default=False)
+    is_archived = models.BooleanField(default=False)
     show_tags_in_review = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

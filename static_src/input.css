@@ -117,12 +117,54 @@
 
   .fc-review-card {
     color: var(--fc-text);
-    min-height: clamp(22rem, 58vh, 36rem);
+    min-height: clamp(18rem, 52dvh, 36rem);
     border: 1px solid color-mix(in srgb, #005aff 24%, var(--fc-border));
     background:
       linear-gradient(145deg, var(--fc-surface), var(--fc-surface-raised)),
       var(--fc-surface);
     box-shadow: 0 24px 70px var(--fc-shadow);
+  }
+
+  .fc-review-panel {
+    max-height: calc(100dvh - 5.5rem);
+  }
+
+  .fc-review-status {
+    color: var(--fc-text);
+    border: 1px solid var(--fc-border);
+    background: color-mix(in srgb, var(--fc-surface) 78%, transparent);
+    backdrop-filter: blur(18px);
+  }
+
+  .fc-review-content {
+    scrollbar-width: thin;
+  }
+
+  .fc-review-face {
+    display: flex;
+    margin-block: auto;
+    width: 100%;
+    flex-direction: column;
+    --fc-review-text-scale: 1;
+  }
+
+  .fc-review-face-inner {
+    width: 100%;
+    transform-origin: top left;
+  }
+
+  .fc-review-face-fit {
+    height: var(--fc-review-reserved-height);
+    min-height: var(--fc-review-reserved-height);
+    overflow: hidden;
+  }
+
+  .fc-review-face-fit > .fc-review-face-inner {
+    transform: scale(var(--fc-review-text-scale, 1));
+  }
+
+  .fc-review-face .fc-rendered-content {
+    width: 100%;
   }
 
   .fc-rendered-content {

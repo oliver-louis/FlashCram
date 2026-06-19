@@ -7,3 +7,6 @@ staticfiles
 node_modules
 .env
 .DS_Store
+.claude
+Graphics-Flashcram
+media

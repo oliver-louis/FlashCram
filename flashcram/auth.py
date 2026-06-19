@@ -12,11 +12,13 @@ class FlashCramOIDCAuthenticationBackend(OIDCAuthenticationBackend):
         username = self._username_from_claims(claims)
         email = (claims.get("email") or "").strip()
         if username:
-            users = User.objects.filter(username=username)
-            if users.exists():
-                return users
+            users = self._oidc_users(User.objects.filter(username=username))
+            if users:
+                return User.objects.filter(pk__in=[user.pk for user in users])
         if email:
-            return User.objects.filter(email__iexact=email)
+            users = self._oidc_users(User.objects.filter(email__iexact=email))
+            if users:
+                return User.objects.filter(pk__in=[user.pk for user in users])
         return User.objects.none()
 
     def create_user(self, claims):
@@ -68,3 +70,6 @@ class FlashCramOIDCAuthenticationBackend(OIDCAuthenticationBackend):
             candidate = f"{base}-{suffix}"[:150]
             suffix += 1
         return candidate
+
+    def _oidc_users(self, queryset):
+        return [user for user in queryset if not user.has_usable_password()]

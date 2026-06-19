@@ -77,11 +77,12 @@ class CategoryDeckModelTests(TestCase):
         deck.refresh_from_db()
         self.assertIsNone(deck.category)
 
-    def test_pin_and_favorite_default_false(self):
+    def test_pin_favorite_and_archive_default_false(self):
         deck = create_deck(name="Defaults")
 
         self.assertFalse(deck.is_pinned)
         self.assertFalse(deck.is_favorite)
+        self.assertFalse(deck.is_archived)
 
 
 class ClassificationTests(TestCase):

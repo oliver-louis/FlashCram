@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Sign in | FlashCram{% endblock %}
+
+{% block content %}
+  <div class="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-xl items-center">
+    <section class="fc-card w-full space-y-6 rounded-3xl p-5 shadow-2xl sm:p-7">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Welcome back</p>
+        <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Sign in to FlashCram</h1>
+        <p class="mt-2 fc-muted">Use a local account created by an admin, or continue with Authentik.</p>
+      </div>
+
+      <form method="post" class="space-y-4" action="{% url 'login' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% if form.non_field_errors %}
+          <div class="alert alert-error rounded-2xl">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+        <label class="form-control">
+          <span class="label-text">Username</span>
+          <input
+            class="input input-bordered h-14 w-full rounded-2xl"
+            type="text"
+            name="{{ form.username.html_name }}"
+            autocomplete="username"
+            autofocus
+            required
+            value="{{ form.username.value|default_if_none:'' }}"
+          >
+          {{ form.username.errors }}
+        </label>
+        <label class="form-control">
+          <span class="label-text">Password</span>
+          <input
+            class="input input-bordered h-14 w-full rounded-2xl"
+            type="password"
+            name="{{ form.password.html_name }}"
+            autocomplete="current-password"
+            required
+          >
+          {{ form.password.errors }}
+        </label>
+        <button class="btn btn-primary fc-tap w-full rounded-2xl" type="submit">Sign in</button>
+      </form>
+
+      <div class="divider">or</div>
+
+      <a class="btn btn-outline fc-tap w-full rounded-2xl" href="{{ oidc_login_url }}">
+        Sign in with Authentik
+      </a>
+
+      <p class="text-sm fc-muted">
+        Local accounts are created by an administrator. Self-registration and password reset are not enabled.
+      </p>
+    </section>
+  </div>
+{% endblock %}

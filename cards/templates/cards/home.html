@@ -11,7 +11,10 @@
           <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Decks</h1>
           <p class="mt-2 max-w-xl text-sm fc-muted sm:text-base">Pick a deck, start a quick review, or add cards before the next cram session.</p>
         </div>
-        <a class="btn btn-primary fc-tap shrink-0 rounded-2xl px-5" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
+        <div class="flex shrink-0 flex-col items-end gap-2">
+          <a class="btn btn-primary fc-tap rounded-2xl px-5" href="{% url 'cards:deck_create' %}" hx-get="{% url 'cards:deck_create' %}" hx-target="#deck-form-slot" hx-swap="innerHTML">New deck</a>
+          <a class="btn btn-ghost btn-sm rounded-2xl" href="{% url 'cards:archived_decks' %}">Archived decks</a>
+        </div>
       </div>
     </header>
 
@@ -42,15 +45,18 @@
 
       {% if show_grouped_home %}
         {% for group in category_groups %}
-          <section class="flex flex-col gap-3">
+          <section class="flex flex-col gap-3" x-data="{ open: true }">
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
                 <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Category</p>
                 <h2 class="truncate text-2xl font-black">{{ group.category.name }}</h2>
               </div>
-              <span class="badge badge-outline rounded-xl">{{ group.decks|length }}</span>
+              <button class="btn btn-ghost rounded-2xl" type="button" @click="open = !open" :aria-expanded="open.toString()" aria-label="Toggle {{ group.category.name }} decks">
+                <span class="badge badge-outline rounded-xl">{{ group.decks|length }}</span>
+                <span class="ml-2 text-lg" aria-hidden="true" x-text="open ? '⌃' : '⌄'"></span>
+              </button>
             </div>
-            <div class="grid gap-3 md:grid-cols-2">
+            <div class="grid gap-3 md:grid-cols-2" x-show="open" x-transition>
               {% for deck in group.decks %}
                 {% include "cards/partials/deck_card.html" %}
               {% endfor %}

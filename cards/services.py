@@ -159,18 +159,24 @@ def is_weak_card(card, settings=None) -> bool:
     return (card.times_wrong / attempts) >= settings.weak_min_ratio
 
 
-def decks_queryset(user=None):
+def decks_queryset(user=None, include_archived=False):
     from .models import Deck
 
     queryset = Deck.objects.select_related("category").all()
     if is_authenticated_user(user):
         queryset = queryset.filter(owner=user)
+    if not include_archived:
+        queryset = queryset.filter(is_archived=False)
     return queryset.order_by(
         "-is_pinned",
         "category__name",
         "created_at",
         "name",
     )
+
+
+def archived_decks_queryset(user=None):
+    return decks_queryset(user, include_archived=True).filter(is_archived=True)
 
 
 def categories_queryset(user=None):
@@ -232,6 +238,18 @@ def toggle_deck_pin(deck) -> None:
 def toggle_deck_favorite(deck) -> None:
     deck.is_favorite = not deck.is_favorite
     deck.save(update_fields=["is_favorite", "updated_at"])
+
+
+def archive_deck(deck) -> None:
+    if not deck.is_archived:
+        deck.is_archived = True
+        deck.save(update_fields=["is_archived", "updated_at"])
+
+
+def restore_deck(deck) -> None:
+    if deck.is_archived:
+        deck.is_archived = False
+        deck.save(update_fields=["is_archived", "updated_at"])
 
 
 def mark_card(card) -> None:
@@ -798,7 +816,7 @@ def export_backup(user=None, decks=None) -> dict:
     if decks is None and user is not None and not is_authenticated_user(user):
         decks = user
         user = None
-    decks = list(decks if decks is not None else decks_queryset(user))
+    decks = list(decks if decks is not None else decks_queryset(user, include_archived=True))
     category_ids = {deck.category_id for deck in decks if deck.category_id}
     categories = categories_queryset(user).filter(id__in=category_ids)
     return {
@@ -827,6 +845,7 @@ def serialize_deck(deck) -> dict:
         "categoryId": str(deck.category_id) if deck.category_id else None,
         "isFavorite": deck.is_favorite,
         "isPinned": deck.is_pinned,
+        "isArchived": deck.is_archived,
         "showTagsInReview": deck.show_tags_in_review,
         "createdAt": isoformat(deck.created_at),
         "updatedAt": isoformat(deck.updated_at),
@@ -929,6 +948,7 @@ def import_backup(payload, user=None) -> dict[str, int]:
                 "category": category,
                 "is_favorite": bool_from_backup(deck_data.get("isFavorite"), False),
                 "is_pinned": bool_from_backup(deck_data.get("isPinned"), False),
+                "is_archived": bool_from_backup(deck_data.get("isArchived"), False),
                 "show_tags_in_review": bool_from_backup(deck_data.get("showTagsInReview"), False),
             },
         )

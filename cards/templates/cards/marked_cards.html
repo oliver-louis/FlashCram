@@ -20,6 +20,7 @@
           '{{ group.deck.id }}': [{% for card in group.cards %}'{{ card.id }}'{% if not forloop.last %}, {% endif %}{% endfor %}]{% if not forloop.last %},{% endif %}
         {% endfor %}
       },
+      bulkOpen: window.matchMedia('(min-width: 640px)').matches,
       toggleIds(ids) {
         const allSelected = ids.every((id) => this.selected.includes(id));
         this.selected = allSelected
@@ -44,6 +45,9 @@
             <p class="text-sm fc-muted"><span x-text="selected.length"></span> selected</p>
           </div>
           <div class="flex flex-wrap gap-2">
+            <button class="btn btn-outline btn-sm rounded-2xl sm:hidden" type="button" @click="bulkOpen = !bulkOpen" :aria-expanded="bulkOpen.toString()">
+              <span x-text="bulkOpen ? 'Hide actions' : 'Show actions'"></span>
+            </button>
             <label class="btn btn-outline btn-sm rounded-2xl">
               <input class="checkbox checkbox-primary checkbox-sm" type="checkbox" :checked="allIds.length > 0 && allIds.every((id) => selected.includes(id))" @change="toggleIds(allIds)">
               Select all
@@ -51,7 +55,7 @@
             <button class="btn btn-ghost btn-sm w-fit rounded-2xl" type="button" @click="selected = []">Clear selection</button>
           </div>
         </div>
-        <div class="mt-4 grid gap-3 lg:grid-cols-[1fr_auto_auto_1fr_auto]">
+        <div class="mt-4 grid gap-3 sm:grid lg:grid-cols-[1fr_auto_auto_1fr_auto]" x-cloak x-show="bulkOpen" x-transition>
           <label class="input input-bordered flex h-14 items-center gap-2 rounded-2xl">
             <span class="text-base-content/50">Tags</span>
             <input class="grow" type="text" name="tags_text" placeholder="important, revise">
