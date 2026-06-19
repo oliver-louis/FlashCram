@@ -9,12 +9,24 @@ services:
       DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:-change-me-for-your-homelab}"
       ALLOWED_HOSTS: "${ALLOWED_HOSTS:-*}"
       CSRF_TRUSTED_ORIGINS: "${CSRF_TRUSTED_ORIGINS:-}"
-      DATABASE_URL: "${DATABASE_URL:-sqlite:////data/flashcram.sqlite3}"
+      DATABASE_URL: "${DATABASE_URL:-postgres://flashcram:flashcram@postgres:5432/flashcram}"
       USE_X_FORWARDED_HOST: "${USE_X_FORWARDED_HOST:-False}"
       SECURE_PROXY_SSL_HEADER: "${SECURE_PROXY_SSL_HEADER:-False}"
       SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-False}"
       CSRF_COOKIE_SECURE: "${CSRF_COOKIE_SECURE:-False}"
       SECURE_SSL_REDIRECT: "${SECURE_SSL_REDIRECT:-False}"
+      OIDC_RP_CLIENT_ID: "${OIDC_RP_CLIENT_ID:-}"
+      OIDC_RP_CLIENT_SECRET: "${OIDC_RP_CLIENT_SECRET:-}"
+      OIDC_OP_AUTHORIZATION_ENDPOINT: "${OIDC_OP_AUTHORIZATION_ENDPOINT:-}"
+      OIDC_OP_TOKEN_ENDPOINT: "${OIDC_OP_TOKEN_ENDPOINT:-}"
+      OIDC_OP_USER_ENDPOINT: "${OIDC_OP_USER_ENDPOINT:-}"
+      OIDC_OP_JWKS_ENDPOINT: "${OIDC_OP_JWKS_ENDPOINT:-}"
+      OIDC_RP_SCOPES: "${OIDC_RP_SCOPES:-openid email profile}"
+      OIDC_RP_SIGN_ALGO: "${OIDC_RP_SIGN_ALGO:-RS256}"
+      DJANGO_SUPERUSER_USERNAME: "${DJANGO_SUPERUSER_USERNAME:-}"
+      DJANGO_SUPERUSER_EMAIL: "${DJANGO_SUPERUSER_EMAIL:-}"
+      DJANGO_SUPERUSER_PASSWORD: "${DJANGO_SUPERUSER_PASSWORD:-}"
+      FLASHCRAM_MIGRATE_TARGET: "${FLASHCRAM_MIGRATE_TARGET:-}"
     volumes:
       - flashcram-data:/data
     healthcheck:
@@ -24,17 +36,22 @@ services:
       retries: 3
       start_period: 30s
 
-  # Future Postgres option only. Do not enable during MVP SQLite phases.
-  # postgres:
-  #   image: postgres:17-alpine
-  #   profiles: ["postgres"]
-  #   environment:
-  #     POSTGRES_DB: flashcram
-  #     POSTGRES_USER: flashcram
-  #     POSTGRES_PASSWORD: flashcram
-  #   volumes:
-  #     - flashcram-postgres:/var/lib/postgresql/data
+  postgres:
+    image: postgres:17-alpine
+    profiles: ["postgres"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-flashcram}"
+      POSTGRES_USER: "${POSTGRES_USER:-flashcram}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-flashcram}"
+    volumes:
+      - flashcram-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-flashcram} -d $${POSTGRES_DB:-flashcram}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   flashcram-data:
-  # flashcram-postgres:
+  flashcram-postgres:

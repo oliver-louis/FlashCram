@@ -23,8 +23,9 @@ class CardInline(admin.TabularInline):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "deck_count", "created_at", "updated_at")
-    search_fields = ("name", "description")
+    list_display = ("name", "owner", "deck_count", "created_at", "updated_at")
+    list_filter = ("owner",)
+    search_fields = ("name", "description", "owner__username", "owner__email")
 
     def deck_count(self, category):
         return category.decks.count()
@@ -32,9 +33,9 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Deck)
 class DeckAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "is_pinned", "is_favorite", "card_count", "created_at", "updated_at")
-    list_filter = ("category", "is_pinned", "is_favorite")
-    search_fields = ("name", "description", "category__name")
+    list_display = ("name", "owner", "category", "is_pinned", "is_favorite", "card_count", "created_at", "updated_at")
+    list_filter = ("owner", "category", "is_pinned", "is_favorite")
+    search_fields = ("name", "description", "category__name", "owner__username", "owner__email")
     inlines = [CardInline]
 
 
@@ -58,7 +59,5 @@ class CardAdmin(admin.ModelAdmin):
 
 @admin.register(Settings)
 class SettingsAdmin(admin.ModelAdmin):
-    list_display = ("theme", "default_content_format", "weak_min_wrong", "weak_min_ratio", "show_less_weight")
-
-    def has_add_permission(self, request):
-        return not Settings.objects.exists()
+    list_display = ("user", "theme", "default_content_format", "weak_min_wrong", "weak_min_ratio", "show_less_weight")
+    search_fields = ("user__username", "user__email")

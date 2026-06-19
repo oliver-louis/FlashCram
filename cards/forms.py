@@ -3,7 +3,15 @@ import json
 from django import forms
 
 from .models import Card, Category, Deck, Settings
-from .services import ImageProcessingError, get_settings, normalize_tags, process_image_upload
+from .services import (
+    ImageProcessingError,
+    categories_queryset,
+    decks_queryset,
+    get_settings,
+    is_authenticated_user,
+    normalize_tags,
+    process_image_upload,
+)
 
 
 class DeckForm(forms.ModelForm):
@@ -51,6 +59,7 @@ class DeckForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk and self.instance.category:
             self.fields["category_name"].initial = self.instance.category.name
@@ -60,12 +69,18 @@ class DeckForm(forms.ModelForm):
 
     def save(self, commit=True):
         deck = super().save(commit=False)
+        if self.user is not None and not deck.owner_id:
+            deck.owner = self.user
         category_name = self.cleaned_data.get("category_name", "")
-        if category_name:
-            category = Category.objects.filter(name__iexact=category_name).first()
+        if category_name and is_authenticated_user(self.user):
+            category = Category.objects.filter(owner=self.user, name__iexact=category_name).first()
             if category is None:
-                category = Category.objects.create(name=category_name)
+                category = Category.objects.create(owner=self.user, name=category_name)
             deck.category = category
+        elif category_name:
+            category = Category.objects.filter(name__iexact=category_name).first()
+            if category is not None:
+                deck.category = category
         else:
             deck.category = None
         if commit:
@@ -131,11 +146,12 @@ class CardForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         preview_url = kwargs.pop("preview_url", "")
         card_id = kwargs.pop("card_id", "")
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             self.fields["tags_text"].initial = ", ".join(self.instance.tags or [])
         else:
-            self.fields["content_format"].initial = get_settings().default_content_format
+            self.fields["content_format"].initial = get_settings(self.user).default_content_format
         self.fields["content_format"].required = False
         self.fields["image_face"].required = False
         if preview_url:
@@ -160,7 +176,7 @@ class CardForm(forms.ModelForm):
             return value
         if self.instance and self.instance.pk:
             return self.instance.content_format
-        return get_settings().default_content_format
+        return get_settings(self.user).default_content_format
 
     def clean_image_face(self):
         value = self.cleaned_data.get("image_face")
@@ -253,8 +269,9 @@ class BulkImportForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
-        self.fields["deck"].queryset = Deck.objects.all().order_by("created_at", "name")
+        self.fields["deck"].queryset = decks_queryset(user)
 
 
 class JsonImportForm(forms.Form):

@@ -2,4 +2,4 @@ from .services import get_settings
 
 
 def flashcram_settings(request):
-    return {"settings": get_settings()}
+    return {"settings": get_settings(getattr(request, "user", None))}

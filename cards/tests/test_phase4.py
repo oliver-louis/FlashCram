@@ -9,8 +9,9 @@ from django.urls import reverse
 from PIL import Image
 
 from cards.models import Card, Deck, Settings
+from cards.tests.utils import AuthenticatedTestCase, create_deck, test_user
 from cards.rendering import card_image_data_uri, normalize_display_math_blocks, plain_text_preview, render_card_face, render_content
-from cards.services import ImageProcessingError, export_backup, import_backup, process_image_bytes
+from cards.services import ImageProcessingError, export_backup, get_settings, import_backup, process_image_bytes
 
 
 HTMX = {"HTTP_HX_REQUEST": "true"}
@@ -137,9 +138,10 @@ class RenderingTests(TestCase):
         self.assertIn("-webkit-overflow-scrolling: touch", css)
 
 
-class PreviewViewTests(TestCase):
+class PreviewViewTests(AuthenticatedTestCase):
     def setUp(self):
-        self.deck = Deck.objects.create(name="Preview deck")
+        super().setUp()
+        self.deck = create_deck(name="Preview deck")
 
     def test_preview_returns_rendered_fragment(self):
         response = self.client.post(
@@ -218,9 +220,10 @@ class PreviewViewTests(TestCase):
         self.assertNotIn("html, body { margin: 0; min-height: 100%; background: #111116", html)
 
 
-class ImageCardTests(TestCase):
+class ImageCardTests(AuthenticatedTestCase):
     def setUp(self):
-        self.deck = Deck.objects.create(name="Images")
+        super().setUp()
+        self.deck = create_deck(name="Images")
 
     def test_image_upload_rejects_disallowed_type(self):
         response = self.client.post(
@@ -289,9 +292,9 @@ class ImageCardTests(TestCase):
                 process_image_bytes(b"not-empty")
 
 
-class PhaseFourImportExportTests(TestCase):
+class PhaseFourImportExportTests(AuthenticatedTestCase):
     def test_bulk_import_uses_default_content_format(self):
-        settings = Settings.objects.get_or_create(pk=Settings.SINGLETON_PK)[0]
+        settings = get_settings(self.user)
         settings.default_content_format = Settings.DefaultContentFormat.MARKDOWN
         settings.save()
 
@@ -309,7 +312,7 @@ class PhaseFourImportExportTests(TestCase):
         self.assertEqual(Card.objects.get().content_format, Card.ContentFormat.MARKDOWN)
 
     def test_backup_round_trip_preserves_format_and_image(self):
-        deck = Deck.objects.create(name="Backup")
+        deck = create_deck(name="Backup")
         image = image_bytes()
         card = Card.objects.create(
             deck=deck,
@@ -322,14 +325,14 @@ class PhaseFourImportExportTests(TestCase):
             image_face=Card.ImageFace.BACK,
         )
 
-        payload = export_backup([deck])
+        payload = export_backup(self.user, [deck])
         exported_card = payload["decks"][0]["cards"][0]
         self.assertEqual(exported_card["image"], base64.b64encode(image).decode("ascii"))
         self.assertEqual(exported_card["imageMime"], "image/png")
         self.assertEqual(exported_card["imageFace"], "back")
 
         Deck.objects.all().delete()
-        import_backup(payload)
+        import_backup(payload, self.user)
         restored = Card.objects.get(id=card.id)
         self.assertEqual(restored.content_format, Card.ContentFormat.MARKDOWN)
         self.assertEqual(bytes(restored.image), image)

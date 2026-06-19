@@ -134,15 +134,23 @@ def image_from_base64(value: str | None) -> bytes | None:
     return b64decode(value)
 
 
-def get_settings():
+def is_authenticated_user(user) -> bool:
+    return bool(user is not None and getattr(user, "is_authenticated", False))
+
+
+def get_settings(user=None):
     from .models import Settings
 
-    settings, _ = Settings.objects.get_or_create(pk=Settings.SINGLETON_PK)
-    return settings
+    if is_authenticated_user(user):
+        settings, _ = Settings.objects.get_or_create(user=user)
+        return settings
+
+    legacy_settings = Settings.objects.filter(user__isnull=True).first()
+    return legacy_settings or Settings()
 
 
 def is_weak_card(card, settings=None) -> bool:
-    settings = settings or get_settings()
+    settings = settings or get_settings(getattr(getattr(card, "deck", None), "owner", None))
     attempts = card.times_correct + card.times_wrong
     if attempts <= 0:
         return False
@@ -151,10 +159,13 @@ def is_weak_card(card, settings=None) -> bool:
     return (card.times_wrong / attempts) >= settings.weak_min_ratio
 
 
-def decks_queryset():
+def decks_queryset(user=None):
     from .models import Deck
 
-    return Deck.objects.select_related("category").all().order_by(
+    queryset = Deck.objects.select_related("category").all()
+    if is_authenticated_user(user):
+        queryset = queryset.filter(owner=user)
+    return queryset.order_by(
         "-is_pinned",
         "category__name",
         "created_at",
@@ -162,15 +173,18 @@ def decks_queryset():
     )
 
 
-def categories_queryset():
+def categories_queryset(user=None):
     from .models import Category
 
-    return Category.objects.all().order_by("name", "created_at")
+    queryset = Category.objects.all()
+    if is_authenticated_user(user):
+        queryset = queryset.filter(owner=user)
+    return queryset.order_by("name", "created_at")
 
 
-def deck_home_groups():
-    decks = list(decks_queryset())
-    categories = list(categories_queryset())
+def deck_home_groups(user=None):
+    decks = list(decks_queryset(user))
+    categories = list(categories_queryset(user))
     has_used_categories = any(deck.category_id for deck in decks)
     pinned = [deck for deck in decks if deck.is_pinned]
     unpinned = [deck for deck in decks if not deck.is_pinned]
@@ -201,10 +215,13 @@ def cards_for_deck(deck):
     return deck.cards.all().order_by("created_at", "id")
 
 
-def marked_cards_queryset():
+def marked_cards_queryset(user=None):
     from .models import Card
 
-    return Card.objects.filter(is_marked=True).select_related("deck").order_by("deck__name", "created_at", "id")
+    queryset = Card.objects.filter(is_marked=True).select_related("deck")
+    if is_authenticated_user(user):
+        queryset = queryset.filter(deck__owner=user)
+    return queryset.order_by("deck__name", "created_at", "id")
 
 
 def toggle_deck_pin(deck) -> None:
@@ -293,13 +310,20 @@ def filter_cards_for_deck(deck, query="", tag="", status="", marked="") -> list:
     return cards
 
 
-def get_deck(deck_id):
+def get_deck(deck_id, user=None):
     from .models import Deck
 
-    return get_object_or_404(Deck, pk=deck_id)
+    queryset = Deck.objects.select_related("category", "owner")
+    if is_authenticated_user(user):
+        queryset = queryset.filter(owner=user)
+    return get_object_or_404(queryset, pk=deck_id)
 
 
-def get_card_for_deck(deck, card_id):
+def get_card_for_deck(deck, card_id, user=None):
+    if is_authenticated_user(user) and deck.owner_id != user.id:
+        from .models import Card
+
+        return get_object_or_404(Card.objects.none(), pk=card_id)
     return get_object_or_404(cards_for_deck(deck), pk=card_id)
 
 
@@ -315,7 +339,7 @@ def card_weight(card, settings=None) -> float:
     if card.status == Card.Status.HIDDEN:
         return 0.0
     if card.status == Card.Status.LESS:
-        settings = settings or get_settings()
+        settings = settings or get_settings(getattr(getattr(card, "deck", None), "owner", None))
         return settings.show_less_weight
     return 1.0
 
@@ -337,7 +361,7 @@ def cards_for_review_mode(deck, mode=REVIEW_ALL_MODE, options=None, rng=None) ->
 
     options = options or {}
     base_cards = list(cards_for_deck(deck))
-    settings = get_settings()
+    settings = get_settings(deck.owner)
 
     if mode == REVIEW_ALL_MODE:
         return [card for card in base_cards if card.status != Card.Status.HIDDEN]
@@ -384,6 +408,7 @@ def start_review_session(request, deck, mode=REVIEW_ALL_MODE, options=None, rng=
     queue = [str(card.id) for card in cards_for_review_mode(deck, mode, options, rng)]
     session = {
         "deck_id": str(deck.id),
+        "user_id": str(request.user.id) if is_authenticated_user(request.user) else "",
         "mode": mode,
         "mode_label": "Excluding tags"
         if mode == REVIEW_TAG_MODE and options.get("exclude_tags")
@@ -427,13 +452,21 @@ def current_review_card(session: dict):
 
     if review_is_complete(session):
         return None
-    return get_object_or_404(Card, pk=session["queue"][session["cursor"]])
+    queryset = Card.objects.select_related("deck", "deck__owner")
+    user_id = session.get("user_id")
+    if user_id:
+        queryset = queryset.filter(deck__owner_id=user_id)
+    return get_object_or_404(queryset, pk=session["queue"][session["cursor"]])
 
 
 def session_deck(session: dict):
     from .models import Deck
 
-    return get_object_or_404(Deck, pk=session["deck_id"])
+    queryset = Deck.objects.select_related("owner", "category")
+    user_id = session.get("user_id")
+    if user_id:
+        queryset = queryset.filter(owner_id=user_id)
+    return get_object_or_404(queryset, pk=session["deck_id"])
 
 
 def apply_review_action(request, action: str) -> dict:
@@ -674,7 +707,7 @@ def parse_multiline_cards(text: str) -> BulkParseResult:
     return BulkParseResult(cards=cards, skipped_count=skipped, detected_format="multi-line")
 
 
-def parse_authoring_json_cards(payload) -> BulkParseResult:
+def parse_authoring_json_cards(payload, user=None) -> BulkParseResult:
     from .models import Card
 
     if isinstance(payload, bytes):
@@ -694,7 +727,7 @@ def parse_authoring_json_cards(payload) -> BulkParseResult:
     if not isinstance(raw_cards, list):
         raise ValueError('Authoring JSON must include a "cards" array.')
 
-    settings = get_settings()
+    settings = get_settings(user)
     default_format = settings.default_content_format
     cards = []
     skipped = 0
@@ -735,11 +768,11 @@ def parse_authoring_json_cards(payload) -> BulkParseResult:
     )
 
 
-def create_cards_from_parsed(deck, parsed_cards: list[ParsedCard]) -> list:
+def create_cards_from_parsed(deck, parsed_cards: list[ParsedCard], user=None) -> list:
     from .models import Card
 
     created = []
-    settings = get_settings()
+    settings = get_settings(user or deck.owner)
     valid_formats = {Card.ContentFormat.PLAINTEXT, Card.ContentFormat.MARKDOWN}
     for parsed in parsed_cards:
         content_format = parsed.content_format if parsed.content_format in valid_formats else settings.default_content_format
@@ -761,10 +794,13 @@ def isoformat(value) -> str:
     return value.astimezone(dt_timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def export_backup(decks=None) -> dict:
-    decks = list(decks if decks is not None else decks_queryset())
+def export_backup(user=None, decks=None) -> dict:
+    if decks is None and user is not None and not is_authenticated_user(user):
+        decks = user
+        user = None
+    decks = list(decks if decks is not None else decks_queryset(user))
     category_ids = {deck.category_id for deck in decks if deck.category_id}
-    categories = categories_queryset().filter(id__in=category_ids)
+    categories = categories_queryset(user).filter(id__in=category_ids)
     return {
         "version": 1,
         "exportedAt": isoformat(timezone.now()),
@@ -847,7 +883,7 @@ def bool_from_backup(value, default=False) -> bool:
     return bool(value)
 
 
-def import_backup(payload) -> dict[str, int]:
+def import_backup(payload, user=None) -> dict[str, int]:
     from .models import Card, Category, Deck
 
     data = parse_backup_payload(payload)
@@ -856,9 +892,13 @@ def import_backup(payload) -> dict[str, int]:
 
     for category_data in data.get("categories", []):
         category_id = UUID(category_data["id"])
+        existing_category = Category.objects.filter(id=category_id).first()
+        if existing_category and is_authenticated_user(user) and existing_category.owner_id != user.id:
+            raise ValueError("Backup contains a category ID that belongs to another user.")
         category, _ = Category.objects.update_or_create(
             id=category_id,
             defaults={
+                **({"owner": user} if is_authenticated_user(user) else {}),
                 "name": category_data.get("name", ""),
                 "description": category_data.get("description", ""),
             },
@@ -868,13 +908,22 @@ def import_backup(payload) -> dict[str, int]:
 
     for deck_data in data.get("decks", []):
         deck_id = UUID(deck_data["id"])
+        existing_deck = Deck.objects.filter(id=deck_id).first()
+        if existing_deck and is_authenticated_user(user) and existing_deck.owner_id != user.id:
+            raise ValueError("Backup contains a deck ID that belongs to another user.")
         category = None
         category_id = deck_data.get("categoryId")
         if category_id:
-            category = category_by_id.get(str(category_id)) or Category.objects.filter(id=category_id).first()
+            category = category_by_id.get(str(category_id))
+            if category is None:
+                category_query = Category.objects.filter(id=category_id)
+                if is_authenticated_user(user):
+                    category_query = category_query.filter(owner=user)
+                category = category_query.first()
         deck, _ = Deck.objects.update_or_create(
             id=deck_id,
             defaults={
+                **({"owner": user} if is_authenticated_user(user) else {}),
                 "name": deck_data.get("name", ""),
                 "description": deck_data.get("description", ""),
                 "category": category,
@@ -888,6 +937,9 @@ def import_backup(payload) -> dict[str, int]:
 
         for card_data in deck_data.get("cards", []):
             card_id = UUID(card_data["id"])
+            existing_card = Card.objects.select_related("deck").filter(id=card_id).first()
+            if existing_card and is_authenticated_user(user) and existing_card.deck.owner_id != user.id:
+                raise ValueError("Backup contains a card ID that belongs to another user.")
             Card.objects.update_or_create(
                 id=card_id,
                 defaults={

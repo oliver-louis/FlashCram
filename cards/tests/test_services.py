@@ -4,6 +4,7 @@ import random
 from django.test import TestCase
 
 from cards.models import Card, Category, Deck, Settings
+from cards.tests.utils import create_category, create_deck, test_user
 from cards.services import (
     cards_for_review_mode,
     create_cards_from_parsed,
@@ -15,12 +16,13 @@ from cards.services import (
     toggle_deck_favorite,
     toggle_deck_pin,
     weighted_shuffle,
+    get_settings,
 )
 
 
 class ReviewModeServiceTests(TestCase):
     def setUp(self):
-        self.deck = Deck.objects.create(name="Modes")
+        self.deck = create_deck(name="Modes")
 
     def card(self, front, **kwargs):
         values = {"deck": self.deck, "front": front, "back": f"{front} back"}
@@ -145,7 +147,8 @@ class BulkParserTests(TestCase):
         self.assertEqual(result.cards[1].content_format, Card.ContentFormat.MARKDOWN)
 
     def test_authoring_json_parser_defaults_format_and_skips_malformed_cards(self):
-        settings = Settings.objects.get_or_create(pk=Settings.SINGLETON_PK)[0]
+        user = test_user("authoring-defaults")
+        settings = get_settings(user)
         settings.default_content_format = Settings.DefaultContentFormat.MARKDOWN
         settings.save()
 
@@ -158,7 +161,8 @@ class BulkParserTests(TestCase):
                     {"front": "Bad format", "back": "Back", "format": "html"},
                     {"front": "Bad tags", "back": "Back", "tags": {"no": "thanks"}},
                 ],
-            }
+            },
+            user,
         )
 
         self.assertEqual(len(result.cards), 1)
@@ -170,7 +174,7 @@ class BulkParserTests(TestCase):
             parse_authoring_json_cards({"version": 1, "decks": []})
 
     def test_create_cards_from_parsed_uses_authoring_content_format(self):
-        deck = Deck.objects.create(name="Import deck")
+        deck = create_deck(name="Import deck")
         result = parse_authoring_json_cards(
             {
                 "schema": "flashcram.cards.v1",
@@ -185,12 +189,12 @@ class BulkParserTests(TestCase):
 
 class DeckOrganizationServiceTests(TestCase):
     def test_grouping_orders_pinned_then_categories_then_uncategorized_without_duplicates(self):
-        science = Category.objects.create(name="Science")
-        maths = Category.objects.create(name="Maths")
-        pinned = Deck.objects.create(name="Pinned", category=science, is_pinned=True)
-        maths_deck = Deck.objects.create(name="Algebra", category=maths)
-        science_deck = Deck.objects.create(name="Physics", category=science)
-        loose = Deck.objects.create(name="Loose")
+        science = create_category(name="Science")
+        maths = create_category(name="Maths")
+        pinned = create_deck(name="Pinned", category=science, is_pinned=True)
+        maths_deck = create_deck(name="Algebra", category=maths)
+        science_deck = create_deck(name="Physics", category=science)
+        loose = create_deck(name="Loose")
 
         groups = deck_home_groups()
 
@@ -204,8 +208,8 @@ class DeckOrganizationServiceTests(TestCase):
         self.assertTrue(groups["show_grouped_home"])
 
     def test_grouping_ignores_empty_category_records(self):
-        Category.objects.create(name="Unused")
-        loose = Deck.objects.create(name="Loose")
+        create_category(name="Unused")
+        loose = create_deck(name="Loose")
 
         groups = deck_home_groups()
 
@@ -216,8 +220,8 @@ class DeckOrganizationServiceTests(TestCase):
         self.assertFalse(groups["show_grouped_home"])
 
     def test_grouping_with_pins_and_no_categories_keeps_unpinned_decks(self):
-        pinned = Deck.objects.create(name="Pinned", is_pinned=True)
-        loose = Deck.objects.create(name="Loose")
+        pinned = create_deck(name="Pinned", is_pinned=True)
+        loose = create_deck(name="Loose")
 
         groups = deck_home_groups()
 
@@ -228,7 +232,7 @@ class DeckOrganizationServiceTests(TestCase):
         self.assertTrue(groups["show_grouped_home"])
 
     def test_pin_and_favorite_toggles_are_independent(self):
-        deck = Deck.objects.create(name="Flags")
+        deck = create_deck(name="Flags")
 
         toggle_deck_pin(deck)
         deck.refresh_from_db()
@@ -243,9 +247,11 @@ class DeckOrganizationServiceTests(TestCase):
 
 class JsonBackupTests(TestCase):
     def test_export_import_round_trip_and_reimport_does_not_duplicate(self):
-        category = Category.objects.create(name="Course", description="Term 1")
-        deck = Deck.objects.create(
+        user = test_user("backup-user")
+        category = create_category(name="Course", owner=user, description="Term 1")
+        deck = create_deck(
             name="Backup",
+            owner=user,
             description="Round trip",
             category=category,
             is_favorite=True,
@@ -262,7 +268,7 @@ class JsonBackupTests(TestCase):
             status=Card.Status.LESS,
             is_marked=True,
         )
-        payload = export_backup()
+        payload = export_backup(user)
 
         self.assertEqual(payload["version"], 1)
         self.assertEqual(payload["categories"][0]["id"], str(category.id))
@@ -275,7 +281,7 @@ class JsonBackupTests(TestCase):
         self.assertTrue(payload["decks"][0]["cards"][0]["isMarked"])
 
         Deck.objects.all().delete()
-        result = import_backup(json.dumps(payload))
+        result = import_backup(json.dumps(payload), user)
         self.assertEqual(result, {"decks": 1, "cards": 1})
 
         restored_deck = Deck.objects.get(id=deck.id)
@@ -289,12 +295,13 @@ class JsonBackupTests(TestCase):
         self.assertEqual(restored_card.status, Card.Status.LESS)
         self.assertTrue(restored_card.is_marked)
 
-        import_backup(payload)
+        import_backup(payload, user)
         self.assertEqual(Category.objects.count(), 1)
         self.assertEqual(Deck.objects.count(), 1)
         self.assertEqual(Card.objects.count(), 1)
 
     def test_import_older_backup_defaults_deck_organization_fields(self):
+        user = test_user("old-backup-user")
         payload = {
             "version": 1,
             "decks": [
@@ -307,9 +314,10 @@ class JsonBackupTests(TestCase):
             ],
         }
 
-        import_backup(payload)
+        import_backup(payload, user)
 
         deck = Deck.objects.get()
+        self.assertEqual(deck.owner, user)
         self.assertIsNone(deck.category)
         self.assertFalse(deck.is_favorite)
         self.assertFalse(deck.is_pinned)

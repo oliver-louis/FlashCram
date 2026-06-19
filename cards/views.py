@@ -51,7 +51,7 @@ def htmx_redirect(to):
 
 
 def home(request):
-    groups = deck_home_groups()
+    groups = deck_home_groups(request.user)
     return render(
         request,
         "cards/home.html",
@@ -60,7 +60,7 @@ def home(request):
 
 
 def deck_detail(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     tag_review_cards = [
         {"id": str(card.id), "tags": card.tags or []}
         for card in cards_for_deck(deck)
@@ -82,7 +82,7 @@ def deck_detail(request, deck_id):
 
 
 def card_list(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     query = request.GET.get("q", "")
     selected_tag = request.GET.get("tag", "")
     selected_status = request.GET.get("status", "")
@@ -116,14 +116,14 @@ def card_list(request, deck_id):
 
 def deck_create(request):
     if request.method == "POST":
-        form = DeckForm(request.POST)
+        form = DeckForm(request.POST, user=request.user)
         if form.is_valid():
             deck = form.save()
             if request.htmx:
                 return htmx_redirect(reverse("cards:home"))
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = DeckForm()
+        form = DeckForm(user=request.user)
 
     template = "cards/partials/deck_form.html" if request.htmx else "cards/deck_form_page.html"
     return render(
@@ -134,23 +134,23 @@ def deck_create(request):
             "title": "New deck",
             "submit_label": "Create deck",
             "action_url": reverse("cards:deck_create"),
-            "category_names": list(categories_queryset().values_list("name", flat=True)),
+            "category_names": list(categories_queryset(request.user).values_list("name", flat=True)),
         },
         status=422 if request.method == "POST" else 200,
     )
 
 
 def deck_edit(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     if request.method == "POST":
-        form = DeckForm(request.POST, instance=deck)
+        form = DeckForm(request.POST, instance=deck, user=request.user)
         if form.is_valid():
             deck = form.save()
             if request.htmx:
                 return render(request, "cards/partials/deck_header.html", {"deck": deck})
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = DeckForm(instance=deck)
+        form = DeckForm(instance=deck, user=request.user)
 
     template = "cards/partials/deck_form.html" if request.htmx else "cards/deck_form_page.html"
     return render(
@@ -162,7 +162,7 @@ def deck_edit(request, deck_id):
             "title": "Edit deck",
             "submit_label": "Save deck",
             "action_url": reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
-            "category_names": list(categories_queryset().values_list("name", flat=True)),
+            "category_names": list(categories_queryset(request.user).values_list("name", flat=True)),
         },
         status=422 if request.method == "POST" else 200,
     )
@@ -170,7 +170,7 @@ def deck_edit(request, deck_id):
 
 @require_POST
 def deck_delete(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     deck.delete()
     if request.htmx:
         return htmx_redirect(reverse("cards:home"))
@@ -179,7 +179,7 @@ def deck_delete(request, deck_id):
 
 @require_POST
 def deck_toggle_pin(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     toggle_deck_pin(deck)
     if request.htmx:
         return htmx_redirect(reverse("cards:home"))
@@ -188,7 +188,7 @@ def deck_toggle_pin(request, deck_id):
 
 @require_POST
 def deck_toggle_favorite(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     toggle_deck_favorite(deck)
     if request.htmx:
         return render(request, "cards/partials/deck_card.html", {"deck": deck})
@@ -196,10 +196,10 @@ def deck_toggle_favorite(request, deck_id):
 
 
 def card_create(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     preview_url = reverse("cards:card_preview", kwargs={"deck_id": deck.id})
     if request.method == "POST":
-        form = CardForm(request.POST, request.FILES, preview_url=preview_url)
+        form = CardForm(request.POST, request.FILES, preview_url=preview_url, user=request.user)
         if form.is_valid():
             card = form.save(commit=False)
             card.deck = deck
@@ -213,7 +213,7 @@ def card_create(request, deck_id):
                 )
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = CardForm(preview_url=preview_url)
+        form = CardForm(preview_url=preview_url, user=request.user)
 
     template = "cards/partials/card_form.html" if request.htmx else "cards/card_form_page.html"
     return render(
@@ -231,8 +231,8 @@ def card_create(request, deck_id):
 
 
 def card_edit(request, deck_id, card_id):
-    deck = get_deck(deck_id)
-    card = get_card_for_deck(deck, card_id)
+    deck = get_deck(deck_id, request.user)
+    card = get_card_for_deck(deck, card_id, request.user)
     preview_url = reverse("cards:card_preview", kwargs={"deck_id": deck.id})
     if request.method == "POST":
         form = CardForm(
@@ -241,6 +241,7 @@ def card_edit(request, deck_id, card_id):
             instance=card,
             preview_url=preview_url,
             card_id=str(card.id),
+            user=request.user,
         )
         if form.is_valid():
             card = form.save()
@@ -248,7 +249,7 @@ def card_edit(request, deck_id, card_id):
                 return render(request, "cards/partials/card_row.html", {"deck": deck, "card": card})
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = CardForm(instance=card, preview_url=preview_url, card_id=str(card.id))
+        form = CardForm(instance=card, preview_url=preview_url, card_id=str(card.id), user=request.user)
 
     template = "cards/partials/card_form.html" if request.htmx else "cards/card_form_page.html"
     return render(
@@ -270,7 +271,7 @@ def card_edit(request, deck_id, card_id):
 
 @require_POST
 def card_preview(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     content_format = request.POST.get("content_format", Card.ContentFormat.PLAINTEXT)
     face = request.POST.get("face", Card.ImageFace.FRONT)
     if face not in {Card.ImageFace.FRONT, Card.ImageFace.BACK}:
@@ -281,7 +282,7 @@ def card_preview(request, deck_id):
     card = None
     card_id = request.POST.get("card_id")
     if card_id:
-        card = get_card_for_deck(deck, card_id)
+        card = get_card_for_deck(deck, card_id, request.user)
     image_data_uri = ""
     image_alt = ""
     if card and card.image_face == face:
@@ -301,8 +302,8 @@ def card_preview(request, deck_id):
 
 
 def card_display_preview(request, deck_id, card_id):
-    deck = get_deck(deck_id)
-    card = get_card_for_deck(deck, card_id)
+    deck = get_deck(deck_id, request.user)
+    card = get_card_for_deck(deck, card_id, request.user)
     return render(
         request,
         "cards/partials/card_display_preview.html",
@@ -317,8 +318,8 @@ def card_display_preview(request, deck_id, card_id):
 
 @require_POST
 def card_delete(request, deck_id, card_id):
-    deck = get_deck(deck_id)
-    card = get_card_for_deck(deck, card_id)
+    deck = get_deck(deck_id, request.user)
+    card = get_card_for_deck(deck, card_id, request.user)
     card.delete()
     if request.htmx:
         return HttpResponse("")
@@ -330,7 +331,7 @@ def review_start(request, deck_id):
 
 
 def review_start_mode(request, deck_id, mode):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     session = start_review_session(request, deck, mode)
     if review_is_complete(session):
         mode_label = session["mode_label"]
@@ -346,7 +347,7 @@ def review_start_mode(request, deck_id, mode):
 
 @require_POST
 def review_start_tag(request, deck_id):
-    deck = get_deck(deck_id)
+    deck = get_deck(deck_id, request.user)
     tags = request.POST.getlist("tags")
     tag_mode = request.POST.get("tag_mode", "include")
     session = start_review_session(
@@ -409,12 +410,13 @@ def review_edit(request):
             request.POST,
             request.FILES,
             instance=card,
+            user=request.user,
         )
         if form.is_valid():
             form.save()
             return render(request, "cards/partials/review_card.html", review_context(session))
     else:
-        form = CardForm(instance=card)
+        form = CardForm(instance=card, user=request.user)
 
     return render(
         request,
@@ -475,7 +477,7 @@ def bulk_import(request):
     initial = {}
     if request.method == "GET" and request.GET.get("deck"):
         initial["deck"] = request.GET.get("deck")
-    form = BulkImportForm(post_data or None, request.FILES or None, initial=initial)
+    form = BulkImportForm(post_data or None, request.FILES or None, initial=initial, user=request.user)
 
     if request.method == "POST" and form.is_valid():
         intent = request.POST.get("intent", "raw_preview")
@@ -508,7 +510,7 @@ def marked_cards(request):
     grouped = []
     current_deck = None
     current_cards = []
-    for card in marked_cards_queryset():
+    for card in marked_cards_queryset(request.user):
         if current_deck is None or card.deck_id != current_deck.id:
             if current_deck is not None:
                 grouped.append({"deck": current_deck, "cards": current_cards})
@@ -522,7 +524,7 @@ def marked_cards(request):
         "cards/marked_cards.html",
         {
             "groups": grouped,
-            "decks": decks_queryset(),
+            "decks": decks_queryset(request.user),
         },
     )
 
@@ -530,7 +532,13 @@ def marked_cards(request):
 @require_POST
 def marked_bulk_action(request):
     selected_ids = request.POST.getlist("cards")
-    selected_cards = list(Card.objects.filter(id__in=selected_ids, is_marked=True).select_related("deck"))
+    selected_cards = list(
+        Card.objects.filter(
+            id__in=selected_ids,
+            is_marked=True,
+            deck__owner=request.user,
+        ).select_related("deck")
+    )
     if not selected_cards:
         return redirect("cards:marked_cards")
 
@@ -544,11 +552,11 @@ def marked_bulk_action(request):
         target_deck = None
         new_deck_name = (request.POST.get("new_deck_name") or "").strip()
         if new_deck_name:
-            target_deck = Deck.objects.create(name=new_deck_name)
+            target_deck = Deck.objects.create(name=new_deck_name, owner=request.user)
         else:
             deck_id = request.POST.get("deck")
             if deck_id:
-                target_deck = get_deck(deck_id)
+                target_deck = get_deck(deck_id, request.user)
         if target_deck is not None:
             copy_cards_to_deck(selected_cards, target_deck)
             return redirect("cards:deck_detail", deck_id=target_deck.id)
@@ -557,8 +565,8 @@ def marked_bulk_action(request):
 
 @require_POST
 def card_mark(request, deck_id, card_id):
-    deck = get_deck(deck_id)
-    card = get_card_for_deck(deck, card_id)
+    deck = get_deck(deck_id, request.user)
+    card = get_card_for_deck(deck, card_id, request.user)
     mark_card(card)
     if request.htmx:
         return render(request, "cards/partials/card_row.html", {"deck": deck, "card": card})
@@ -567,8 +575,8 @@ def card_mark(request, deck_id, card_id):
 
 @require_POST
 def card_unmark(request, deck_id, card_id):
-    deck = get_deck(deck_id)
-    card = get_card_for_deck(deck, card_id)
+    deck = get_deck(deck_id, request.user)
+    card = get_card_for_deck(deck, card_id, request.user)
     unmark_card(card)
     if request.htmx:
         if request.headers.get("HX-Target", "").startswith("card-"):
@@ -577,15 +585,15 @@ def card_unmark(request, deck_id, card_id):
     return redirect("cards:marked_cards")
 
 
-def import_target_deck(form, fallback_name=""):
+def import_target_deck(form, user, fallback_name=""):
     deck = form.cleaned_data.get("deck")
     if deck is not None:
         return deck
     new_deck_name = (form.cleaned_data.get("new_deck_name") or "").strip()
     if new_deck_name:
-        return Deck.objects.create(name=new_deck_name)
+        return Deck.objects.create(name=new_deck_name, owner=user)
     if fallback_name:
-        return Deck.objects.create(name=fallback_name)
+        return Deck.objects.create(name=fallback_name, owner=user)
     return None
 
 
@@ -599,8 +607,8 @@ def handle_raw_text_import(request, form, intent):
         return None
     result = parse_bulk_cards(text)
     if intent == "raw_confirm":
-        deck = import_target_deck(form)
-        create_cards_from_parsed(deck, result.cards)
+        deck = import_target_deck(form, request.user)
+        create_cards_from_parsed(deck, result.cards, request.user)
         return redirect("cards:deck_detail", deck_id=deck.id)
     return result
 
@@ -611,7 +619,7 @@ def handle_authoring_json_import(request, form, intent):
         form.add_error("authoring_json_text", "Upload a JSON file or paste authoring JSON before previewing.")
         return None
     try:
-        result = parse_authoring_json_cards(payload)
+        result = parse_authoring_json_cards(payload, request.user)
     except ValueError as exc:
         form.add_error("authoring_json_text", str(exc))
         return None
@@ -619,14 +627,14 @@ def handle_authoring_json_import(request, form, intent):
         form.add_error(None, "Choose a deck, enter a new deck name, or include a deck name in the JSON.")
         return result
     if intent == "json_confirm":
-        deck = import_target_deck(form, fallback_name=result.deck_name)
-        create_cards_from_parsed(deck, result.cards)
+        deck = import_target_deck(form, request.user, fallback_name=result.deck_name)
+        create_cards_from_parsed(deck, result.cards, request.user)
         return redirect("cards:deck_detail", deck_id=deck.id)
     return result
 
 
 def settings_view(request):
-    settings = get_settings()
+    settings = get_settings(request.user)
     settings_form = SettingsForm(instance=settings)
     import_form = JsonImportForm()
     import_result = None
@@ -640,7 +648,7 @@ def settings_view(request):
         elif request.POST.get("form") == "json_import":
             import_form = JsonImportForm(request.POST)
             if import_form.is_valid():
-                import_result = import_backup(import_form.cleaned_data["backup_json"])
+                import_result = import_backup(import_form.cleaned_data["backup_json"], request.user)
 
     return render(
         request,
@@ -654,13 +662,13 @@ def settings_view(request):
 
 
 def export_all(request):
-    payload = export_backup()
+    payload = export_backup(request.user)
     return json_response(payload, "flashcram-backup.json")
 
 
 def export_deck(request, deck_id):
-    deck = get_deck(deck_id)
-    payload = export_backup([deck])
+    deck = get_deck(deck_id, request.user)
+    payload = export_backup(request.user, [deck])
     return json_response(payload, f"flashcram-{deck.id}.json")
 
 

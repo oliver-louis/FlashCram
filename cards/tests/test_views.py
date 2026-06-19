@@ -6,6 +6,7 @@ from django.urls import reverse
 from pathlib import Path
 
 from cards.models import Card, Category, Deck, Settings
+from cards.tests.utils import AuthenticatedTestCase, create_category, create_deck, test_user
 from cards.services import REVIEW_SESSION_KEY
 
 
@@ -19,9 +20,9 @@ class HealthViewTests(TestCase):
         self.assertEqual(response.content, b"ok\n")
 
 
-class DeckCrudViewTests(TestCase):
+class DeckCrudViewTests(AuthenticatedTestCase):
     def test_home_lists_deck_counts(self):
-        deck = Deck.objects.create(name="Linux")
+        deck = create_deck(name="Linux")
         Card.objects.create(deck=deck, front="ls", back="list")
         Card.objects.create(deck=deck, front="secret", back="hidden", status=Card.Status.HIDDEN)
 
@@ -32,7 +33,7 @@ class DeckCrudViewTests(TestCase):
         self.assertContains(response, "hidden")
 
     def test_home_deck_cards_are_mobile_compact_and_include_review_action(self):
-        deck = Deck.objects.create(name="A very long deck title that should wrap on mobile instead of causing horizontal scrolling")
+        deck = create_deck(name="A very long deck title that should wrap on mobile instead of causing horizontal scrolling")
         Card.objects.create(deck=deck, front="front", back="back")
 
         response = self.client.get(reverse("cards:home"))
@@ -57,7 +58,7 @@ class DeckCrudViewTests(TestCase):
         self.assertEqual(Deck.objects.count(), 1)
 
     def test_deck_edit_htmx_returns_header_fragment(self):
-        deck = Deck.objects.create(name="Old")
+        deck = create_deck(name="Old")
 
         response = self.client.post(
             reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
@@ -71,7 +72,7 @@ class DeckCrudViewTests(TestCase):
         self.assertEqual(deck.name, "New")
 
     def test_deck_edit_form_keeps_htmx_target_after_outer_swap(self):
-        deck = Deck.objects.create(name="Old", description="Before")
+        deck = create_deck(name="Old", description="Before")
 
         form_response = self.client.get(
             reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
@@ -95,7 +96,7 @@ class DeckCrudViewTests(TestCase):
         self.assertContains(save_response, "After")
 
     def test_deck_edit_saves_show_tags_in_review_default(self):
-        deck = Deck.objects.create(name="Deck")
+        deck = create_deck(name="Deck")
 
         response = self.client.post(
             reverse("cards:deck_edit", kwargs={"deck_id": deck.id}),
@@ -112,7 +113,7 @@ class DeckCrudViewTests(TestCase):
         self.assertTrue(deck.show_tags_in_review)
 
     def test_deck_create_and_edit_save_category_pin_and_favorite_fields(self):
-        category = Category.objects.create(name="Existing")
+        category = create_category(name="Existing")
 
         create = self.client.post(
             reverse("cards:deck_create"),
@@ -160,7 +161,7 @@ class DeckCrudViewTests(TestCase):
         self.assertIsNone(deck.category)
 
     def test_deck_form_combobox_reuses_categories_case_insensitively(self):
-        category = Category.objects.create(name="CSSE2310")
+        category = create_category(name="CSSE2310")
 
         response = self.client.post(
             reverse("cards:deck_create"),
@@ -174,7 +175,7 @@ class DeckCrudViewTests(TestCase):
         self.assertEqual(Category.objects.count(), 1)
 
     def test_deck_form_renders_single_category_combobox(self):
-        Category.objects.create(name="CSSE2310")
+        create_category(name="CSSE2310")
 
         response = self.client.get(reverse("cards:deck_create"), **HTMX)
 
@@ -187,7 +188,7 @@ class DeckCrudViewTests(TestCase):
         self.assertNotContains(response, "new_category_name")
 
     def test_home_without_categories_uses_flat_deck_grid(self):
-        Deck.objects.create(name="Plain deck")
+        create_deck(name="Plain deck")
 
         response = self.client.get(reverse("cards:home"))
 
@@ -197,8 +198,8 @@ class DeckCrudViewTests(TestCase):
         self.assertNotContains(response, "Uncategorized")
 
     def test_empty_category_records_do_not_change_home_layout(self):
-        Category.objects.create(name="Unused")
-        Deck.objects.create(name="Plain deck")
+        create_category(name="Unused")
+        create_deck(name="Plain deck")
 
         response = self.client.get(reverse("cards:home"))
 
@@ -207,8 +208,8 @@ class DeckCrudViewTests(TestCase):
         self.assertNotContains(response, "Uncategorized")
 
     def test_pinned_deck_without_categories_keeps_other_decks_flat(self):
-        Deck.objects.create(name="Pinned deck", is_pinned=True)
-        Deck.objects.create(name="Loose deck")
+        create_deck(name="Pinned deck", is_pinned=True)
+        create_deck(name="Loose deck")
 
         response = self.client.get(reverse("cards:home"))
 
@@ -218,10 +219,10 @@ class DeckCrudViewTests(TestCase):
         self.assertNotContains(response, "Uncategorized")
 
     def test_home_renders_pinned_category_and_uncategorized_sections(self):
-        course = Category.objects.create(name="CSSE2310")
-        pinned = Deck.objects.create(name="Pinned deck", category=course, is_pinned=True, is_favorite=True)
-        categorized = Deck.objects.create(name="Course deck", category=course)
-        loose = Deck.objects.create(name="Loose deck")
+        course = create_category(name="CSSE2310")
+        pinned = create_deck(name="Pinned deck", category=course, is_pinned=True, is_favorite=True)
+        categorized = create_deck(name="Course deck", category=course)
+        loose = create_deck(name="Loose deck")
 
         response = self.client.get(reverse("cards:home"))
         html = response.content.decode()
@@ -238,7 +239,7 @@ class DeckCrudViewTests(TestCase):
         self.assertLess(html.index("Course deck"), html.index("Loose deck"))
 
     def test_deck_pin_and_favorite_toggle_endpoints(self):
-        deck = Deck.objects.create(name="Toggle")
+        deck = create_deck(name="Toggle")
 
         pin = self.client.post(reverse("cards:deck_toggle_pin", kwargs={"deck_id": deck.id}), **HTMX)
         deck.refresh_from_db()
@@ -252,7 +253,7 @@ class DeckCrudViewTests(TestCase):
         self.assertContains(favorite, 'aria-label="Unfavourite deck"')
 
     def test_deck_delete_htmx_cascades_cards_and_redirects(self):
-        deck = Deck.objects.create(name="Delete me")
+        deck = create_deck(name="Delete me")
         Card.objects.create(deck=deck, front="front", back="back")
 
         response = self.client.post(
@@ -266,9 +267,10 @@ class DeckCrudViewTests(TestCase):
         self.assertEqual(Card.objects.count(), 0)
 
 
-class CardCrudViewTests(TestCase):
+class CardCrudViewTests(AuthenticatedTestCase):
     def setUp(self):
-        self.deck = Deck.objects.create(name="Deck")
+        super().setUp()
+        self.deck = create_deck(name="Deck")
 
     def test_card_create_htmx_returns_fragment_and_normalizes_tags(self):
         response = self.client.post(
@@ -377,9 +379,10 @@ class CardCrudViewTests(TestCase):
         self.assertFalse(Card.objects.filter(pk=card.pk).exists())
 
 
-class ReviewAllViewTests(TestCase):
+class ReviewAllViewTests(AuthenticatedTestCase):
     def setUp(self):
-        self.deck = Deck.objects.create(name="Review deck")
+        super().setUp()
+        self.deck = create_deck(name="Review deck")
 
     def make_card(self, front, **kwargs):
         values = {"deck": self.deck, "front": front, "back": f"{front} back"}
@@ -709,7 +712,7 @@ class ReviewAllViewTests(TestCase):
 
     def test_marked_bulk_action_copies_selected_cards_to_existing_or_new_deck(self):
         marked = self.make_card("marked", is_marked=True, tags=["review"])
-        target = Deck.objects.create(name="Target")
+        target = create_deck(name="Target")
 
         response = self.client.post(
             reverse("cards:marked_bulk_action"),
@@ -740,9 +743,9 @@ class ReviewAllViewTests(TestCase):
         self.assertEqual(Card.objects.filter(deck=new_deck, front=marked.front).count(), 1)
 
 
-class PhaseTwoViewTests(TestCase):
+class PhaseTwoViewTests(AuthenticatedTestCase):
     def test_deck_detail_renders_phase_two_actions(self):
-        deck = Deck.objects.create(name="Actions")
+        deck = create_deck(name="Actions")
         Card.objects.create(deck=deck, front="front", back="back", tags=["shell"])
 
         response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
@@ -753,7 +756,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, "Review by tag")
 
     def test_review_by_tag_include_and_exclude_modes_build_expected_queues(self):
-        deck = Deck.objects.create(name="Tag modes")
+        deck = create_deck(name="Tag modes")
         shell = Card.objects.create(deck=deck, front="shell", back="back", tags=["shell"])
         python = Card.objects.create(deck=deck, front="python", back="back", tags=["python"])
         untagged = Card.objects.create(deck=deck, front="untagged", back="back")
@@ -778,7 +781,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(exclude, "Excluding tags")
 
     def test_deck_detail_places_review_before_deck_info(self):
-        deck = Deck.objects.create(name="Order")
+        deck = create_deck(name="Order")
 
         response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
         html = response.content.decode()
@@ -786,7 +789,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertLess(html.index(">Review<"), html.index(">Deck<"))
 
     def test_deck_detail_collapses_large_tag_lists_and_review_tags(self):
-        deck = Deck.objects.create(name="Many tags")
+        deck = create_deck(name="Many tags")
         tags = [f"tag{i}" for i in range(1, 10)]
         Card.objects.create(deck=deck, front="front", back="back", tags=tags)
 
@@ -804,7 +807,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, "tag9")
 
     def test_deck_detail_short_tag_lists_do_not_render_collapse_controls(self):
-        deck = Deck.objects.create(name="Short tags")
+        deck = create_deck(name="Short tags")
         Card.objects.create(deck=deck, front="front", back="back", tags=[f"tag{i}" for i in range(1, 9)])
 
         response = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
@@ -813,7 +816,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertNotContains(response, 'x-show="expanded"')
 
     def test_deck_detail_includes_mobile_overflow_guards(self):
-        deck = Deck.objects.create(name="Overflow")
+        deck = create_deck(name="Overflow")
         Card.objects.create(
             deck=deck,
             front="A very long card front that should wrap instead of stretching the viewport",
@@ -833,7 +836,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, "max-w-full truncate")
 
     def test_bulk_import_preview_and_confirm_existing_deck(self):
-        deck = Deck.objects.create(name="Import target")
+        deck = create_deck(name="Import target")
         payload = {
             "deck": str(deck.id),
             "new_deck_name": "",
@@ -882,7 +885,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, "Backup JSON files should be imported from Settings")
 
     def test_bulk_import_prefills_deck_from_query_parameter(self):
-        deck = Deck.objects.create(name="Prefill target")
+        deck = create_deck(name="Prefill target")
 
         detail = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": deck.id}))
         self.assertContains(detail, f'?deck={deck.id}')
@@ -893,7 +896,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(response, f'<option value="{deck.id}" selected>Prefill target</option>')
 
     def test_authoring_json_file_preview_and_confirm_existing_deck(self):
-        deck = Deck.objects.create(name="JSON target")
+        deck = create_deck(name="JSON target")
         payload = json.dumps(
             {
                 "schema": "flashcram.cards.v1",
@@ -966,7 +969,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertEqual(deck.card_count, 1)
 
     def test_authoring_json_reimport_adds_duplicate_cards(self):
-        deck = Deck.objects.create(name="Duplicate target")
+        deck = create_deck(name="Duplicate target")
         payload = json.dumps(
             {
                 "schema": "flashcram.cards.v1",
@@ -998,7 +1001,7 @@ class PhaseTwoViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
 
-        settings = Settings.objects.get()
+        settings = Settings.objects.get(user=self.user)
         self.assertEqual(settings.theme, Settings.Theme.LIGHT)
         self.assertEqual(settings.weak_min_wrong, 3)
         self.assertEqual(settings.weak_min_ratio, 0.5)
@@ -1008,7 +1011,7 @@ class PhaseTwoViewTests(TestCase):
         self.assertContains(home, 'data-theme="light"')
 
     def test_json_export_and_import_view(self):
-        deck = Deck.objects.create(name="Exportable")
+        deck = create_deck(name="Exportable")
         Card.objects.create(deck=deck, front="Front", back="Back")
 
         export = self.client.get(reverse("cards:export_all"))
@@ -1028,9 +1031,10 @@ class PhaseTwoViewTests(TestCase):
         self.assertEqual(Card.objects.count(), 1)
 
 
-class PhaseThreePolishTests(TestCase):
+class PhaseThreePolishTests(AuthenticatedTestCase):
     def setUp(self):
-        self.deck = Deck.objects.create(name="Search deck")
+        super().setUp()
+        self.deck = create_deck(name="Search deck")
         self.front_match = Card.objects.create(
             deck=self.deck,
             front="Kernel modules",
@@ -1160,7 +1164,7 @@ class PhaseThreePolishTests(TestCase):
         home = self.client.get(reverse("cards:home"))
         self.assertContains(home, "No decks yet")
 
-        empty_deck = Deck.objects.create(name="Empty")
+        empty_deck = create_deck(name="Empty")
         detail = self.client.get(reverse("cards:deck_detail", kwargs={"deck_id": empty_deck.id}))
         self.assertContains(detail, "No cards yet")
 
@@ -1183,12 +1187,12 @@ class PhaseThreePolishTests(TestCase):
                 },
             )
             self.assertEqual(response.status_code, 302)
-            self.assertEqual(Settings.objects.get().theme, theme)
+            self.assertEqual(Settings.objects.get(user=self.user).theme, theme)
             home = self.client.get(reverse("cards:home"))
             self.assertContains(home, f'data-theme="{theme}"')
 
 
-class UiAssetTests(TestCase):
+class UiAssetTests(AuthenticatedTestCase):
     def test_nav_uses_theme_aware_brand_and_mobile_menu(self):
         response = self.client.get(reverse("cards:home"))
 

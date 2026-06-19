@@ -16,6 +16,14 @@ env = environ.Env(
     SESSION_COOKIE_SECURE=(bool, False),
     CSRF_COOKIE_SECURE=(bool, False),
     SECURE_SSL_REDIRECT=(bool, False),
+    OIDC_RP_CLIENT_ID=(str, ""),
+    OIDC_RP_CLIENT_SECRET=(str, ""),
+    OIDC_OP_AUTHORIZATION_ENDPOINT=(str, ""),
+    OIDC_OP_TOKEN_ENDPOINT=(str, ""),
+    OIDC_OP_USER_ENDPOINT=(str, ""),
+    OIDC_OP_JWKS_ENDPOINT=(str, ""),
+    OIDC_RP_SCOPES=(str, "openid email profile"),
+    OIDC_RP_SIGN_ALGO=(str, "RS256"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -38,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_htmx",
+    "mozilla_django_oidc",
     "cards.apps.CardsConfig",
 ]
 
@@ -47,6 +56,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "flashcram.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -91,6 +101,25 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+AUTHENTICATION_BACKENDS = [
+    "flashcram.auth.FlashCramOIDCAuthenticationBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+LOGIN_URL = "oidc_authentication_init"
+LOGIN_REDIRECT_URL = "cards:home"
+LOGOUT_REDIRECT_URL = "oidc_logout"
+
+OIDC_RP_CLIENT_ID = env("OIDC_RP_CLIENT_ID")
+OIDC_RP_CLIENT_SECRET = env("OIDC_RP_CLIENT_SECRET")
+OIDC_OP_AUTHORIZATION_ENDPOINT = env("OIDC_OP_AUTHORIZATION_ENDPOINT")
+OIDC_OP_TOKEN_ENDPOINT = env("OIDC_OP_TOKEN_ENDPOINT")
+OIDC_OP_USER_ENDPOINT = env("OIDC_OP_USER_ENDPOINT")
+OIDC_OP_JWKS_ENDPOINT = env("OIDC_OP_JWKS_ENDPOINT")
+OIDC_RP_SCOPES = env("OIDC_RP_SCOPES")
+OIDC_RP_SIGN_ALGO = env("OIDC_RP_SIGN_ALGO")
+OIDC_CREATE_USER = True
+OIDC_STORE_ACCESS_TOKEN = True
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"

@@ -1,24 +1,31 @@
 from django.test import TestCase
 
 from cards.models import Card, Category, Deck, Settings
+from cards.tests.utils import create_category, create_deck, test_user
 from cards.services import get_settings, normalize_tags
 
 
 class SettingsTests(TestCase):
-    def test_settings_singleton_accessor_returns_one_row(self):
-        first = get_settings()
-        second = get_settings()
+    def test_settings_accessor_returns_one_row_per_user(self):
+        user = test_user("settings-a")
+        first = get_settings(user)
+        second = get_settings(user)
 
-        self.assertEqual(first.pk, Settings.SINGLETON_PK)
-        self.assertEqual(second.pk, Settings.SINGLETON_PK)
+        self.assertEqual(first.pk, second.pk)
         self.assertEqual(Settings.objects.count(), 1)
 
-    def test_settings_save_forces_singleton_pk(self):
-        settings = Settings(id=99, theme=Settings.Theme.LIGHT)
-        settings.save()
+    def test_settings_are_isolated_per_user(self):
+        user_a = test_user("settings-a")
+        user_b = test_user("settings-b")
+        settings_a = get_settings(user_a)
+        settings_b = get_settings(user_b)
 
-        self.assertEqual(settings.pk, Settings.SINGLETON_PK)
-        self.assertEqual(Settings.objects.count(), 1)
+        settings_a.weak_min_wrong = 7
+        settings_a.save()
+
+        settings_b.refresh_from_db()
+        self.assertEqual(Settings.objects.count(), 2)
+        self.assertEqual(settings_b.weak_min_wrong, 2)
 
 
 class TagNormalizationTests(TestCase):
@@ -35,7 +42,7 @@ class TagNormalizationTests(TestCase):
         )
 
     def test_card_save_normalizes_tags(self):
-        deck = Deck.objects.create(name="CLI")
+        deck = create_deck(name="CLI")
         card = Card.objects.create(
             deck=deck,
             front="What does ls do?",
@@ -46,7 +53,7 @@ class TagNormalizationTests(TestCase):
         self.assertEqual(card.tags, ["shell", "files"])
 
     def test_new_card_defaults_to_unmarked(self):
-        deck = Deck.objects.create(name="Marked")
+        deck = create_deck(name="Marked")
         card = Card.objects.create(deck=deck, front="Front", back="Back")
 
         self.assertFalse(card.is_marked)
@@ -54,16 +61,16 @@ class TagNormalizationTests(TestCase):
 
 class CategoryDeckModelTests(TestCase):
     def test_deck_can_be_uncategorized_or_assigned_to_category(self):
-        category = Category.objects.create(name="CSSE2310")
-        uncategorized = Deck.objects.create(name="Loose")
-        categorized = Deck.objects.create(name="Exam", category=category)
+        category = create_category(name="CSSE2310")
+        uncategorized = create_deck(name="Loose")
+        categorized = create_deck(name="Exam", category=category)
 
         self.assertIsNone(uncategorized.category)
         self.assertEqual(categorized.category, category)
 
     def test_deleting_category_uncategorizes_decks(self):
-        category = Category.objects.create(name="Economics")
-        deck = Deck.objects.create(name="Final", category=category)
+        category = create_category(name="Economics")
+        deck = create_deck(name="Final", category=category)
 
         category.delete()
 
@@ -71,7 +78,7 @@ class CategoryDeckModelTests(TestCase):
         self.assertIsNone(deck.category)
 
     def test_pin_and_favorite_default_false(self):
-        deck = Deck.objects.create(name="Defaults")
+        deck = create_deck(name="Defaults")
 
         self.assertFalse(deck.is_pinned)
         self.assertFalse(deck.is_favorite)
@@ -79,8 +86,9 @@ class CategoryDeckModelTests(TestCase):
 
 class ClassificationTests(TestCase):
     def setUp(self):
-        self.deck = Deck.objects.create(name="Exam")
-        self.settings = get_settings()
+        self.user = test_user("classification")
+        self.deck = create_deck(name="Exam", owner=self.user)
+        self.settings = get_settings(self.user)
 
     def make_card(self, **kwargs):
         values = {
@@ -125,7 +133,7 @@ class ClassificationTests(TestCase):
 
 class DeckDerivedHelperTests(TestCase):
     def test_deck_counts_and_tags(self):
-        deck = Deck.objects.create(name="Mixed deck")
+        deck = create_deck(name="Mixed deck")
         Card.objects.create(deck=deck, front="new", back="new", tags=["shell", "CLI"])
         Card.objects.create(
             deck=deck,

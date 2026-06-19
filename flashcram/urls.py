@@ -9,6 +9,7 @@ def healthz(_request):
 
 urlpatterns = [
     path("healthz/", healthz, name="healthz"),
+    path("oidc/", include("mozilla_django_oidc.urls")),
     path("admin/", admin.site.urls),
     path("", include("cards.urls")),
 ]

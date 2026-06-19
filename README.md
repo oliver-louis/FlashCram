@@ -1,7 +1,7 @@
 # FlashCram
 
-FlashCram is a self-hosted, single-user, mobile-first flashcard app for exam cram.
-It is built for fast card creation, manual review, and comfortable phone use on a homelab or private server.
+FlashCram is a self-hosted, multi-user, mobile-first flashcard app for exam cram.
+It is built for fast card creation, manual review, and comfortable phone use on a homelab or private server, with app-level OIDC login for Authentik-style deployments.
 
 ## Features
 
@@ -19,8 +19,8 @@ It is built for fast card creation, manual review, and comfortable phone use on 
 
 - Django, server-rendered templates, HTMX, Alpine.js.
 - Tailwind CSS + daisyUI compiled into static assets.
-- SQLite by default, stored on a Docker named volume.
-- Docker Compose with a single app container.
+- Postgres for production via Docker Compose profile; SQLite remains useful for local development and one-time migration exports.
+- Docker Compose with one app container plus a profiles-gated Postgres service.
 
 There is no runtime CDN and no Node.js in the final app container.
 
@@ -32,7 +32,7 @@ cd flashcram
 cp .env.example .env
 ```
 
-Edit `.env` before the first start. At minimum, set a real `DJANGO_SECRET_KEY` and update `ALLOWED_HOSTS` for your server IP or hostname.
+Edit `.env` before the first start. At minimum, set a real `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD`, `ALLOWED_HOSTS`, and the OIDC values from Authentik.
 
 Generate a secret key:
 
@@ -40,10 +40,10 @@ Generate a secret key:
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-Start the app:
+Start the app with Postgres:
 
 ```bash
-docker compose up --build -d
+COMPOSE_PROFILES=postgres docker compose up --build -d
 ```
 
 The app runs on [http://localhost:8000](http://localhost:8000) by default. On another device on the same LAN, use your server IP, for example `http://192.168.1.23:8000`.
@@ -64,17 +64,32 @@ HOST_PORT=8001 docker compose up --build -d
 
 ## Server Deployment
 
-Recommended first-server `.env` for LAN or VPN-only use:
+Recommended first-server `.env`:
 
 ```env
 DEBUG=False
 DJANGO_SECRET_KEY=replace-with-a-real-secret
-ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.23
-DATABASE_URL=sqlite:////data/flashcram.sqlite3
+ALLOWED_HOSTS=localhost,127.0.0.1,192.168.1.23,flashcram.example.com
+DATABASE_URL=postgres://flashcram:replace-this-postgres-password@postgres:5432/flashcram
+POSTGRES_DB=flashcram
+POSTGRES_USER=flashcram
+POSTGRES_PASSWORD=replace-this-postgres-password
 HOST_PORT=8000
+OIDC_RP_CLIENT_ID=your-authentik-client-id
+OIDC_RP_CLIENT_SECRET=your-authentik-client-secret
+OIDC_OP_AUTHORIZATION_ENDPOINT=https://auth.example.com/application/o/flashcram/authorize/
+OIDC_OP_TOKEN_ENDPOINT=https://auth.example.com/application/o/flashcram/token/
+OIDC_OP_USER_ENDPOINT=https://auth.example.com/application/o/flashcram/userinfo/
+OIDC_OP_JWKS_ENDPOINT=https://auth.example.com/application/o/flashcram/jwks/
 ```
 
-FlashCram currently has no built-in authentication. Do not expose it directly to the public internet unless it is protected by a VPN, firewall, or reverse-proxy authentication layer.
+In Authentik, set the redirect URI to:
+
+```text
+https://flashcram.example.com/oidc/callback/
+```
+
+FlashCram uses app-level OIDC authentication. Django's `ModelBackend` is still enabled for future local-login UI and admin-created users.
 
 ## Reverse Proxy
 
@@ -119,19 +134,40 @@ If your proxy and Docker host are different machines, proxy to `http://<docker-h
 
 ## Data And Backups
 
-SQLite lives in the `flashcram-data` Docker volume at `/data/flashcram.sqlite3` inside the container.
+Postgres data lives in the `flashcram-postgres` Docker volume. Use `pg_dump` for production backups.
 
 For app-level backups, use Settings -> Export all. That JSON includes decks, cards, counters, markdown/plaintext formats, tags, and card images.
 
-For volume-level backups, stop the app and archive the named volume:
+For database backups:
 
 ```bash
-docker compose down
-docker run --rm -v flashcram_flashcram-data:/data -v "$PWD":/backup alpine tar czf /backup/flashcram-data.tgz -C /data .
-docker compose up -d
+docker compose exec postgres pg_dump -U flashcram flashcram > flashcram.sql
 ```
 
 The exact volume name may differ if your checkout directory is not named `flashcram`; check with `docker volume ls`.
+
+## SQLite To Postgres Migration
+
+If you already have a pre-P6 SQLite install:
+
+```bash
+# 1. On the old SQLite config, export data.
+docker compose exec app python manage.py dumpdata cards --natural-foreign --natural-primary --indent 2 > flashcram-sqlite-cards.json
+
+# 2. Update .env to Postgres DATABASE_URL and start only through the nullable-owner migration.
+COMPOSE_PROFILES=postgres FLASHCRAM_MIGRATE_TARGET="cards 0006_multi_user_nullable" docker compose up --build -d
+
+# 3. Load the old data.
+docker compose exec -T app python manage.py loaddata < flashcram-sqlite-cards.json
+
+# 4. Create or provision the target user, then assign old single-user data.
+docker compose exec app python manage.py createsuperuser
+docker compose exec app python manage.py assign_orphan_decks <username>
+
+# 5. Finish migrations and verify row counts.
+docker compose exec app python manage.py migrate
+docker compose exec app python manage.py shell -c "from cards.models import Deck,Card; print(Deck.objects.count(), Card.objects.count())"
+```
 
 ## Upgrades
 
@@ -152,7 +188,18 @@ The container runs Django migrations and `collectstatic` on startup.
 | `DJANGO_SECRET_KEY` | Development placeholder | Replace before deployment. |
 | `ALLOWED_HOSTS` | `*` in Compose | Use explicit server IPs/hostnames for stricter deployments. |
 | `CSRF_TRUSTED_ORIGINS` | empty | Required for HTTPS form posts behind a proxy. |
-| `DATABASE_URL` | `sqlite:////data/flashcram.sqlite3` | SQLite database path in the Docker volume. |
+| `DATABASE_URL` | Postgres URL in `.env.example` | Use Postgres for deployment; SQLite is only for local/dev export paths. |
+| `POSTGRES_DB` | `flashcram` | Database name for the Compose Postgres profile. |
+| `POSTGRES_USER` | `flashcram` | Database user for the Compose Postgres profile. |
+| `POSTGRES_PASSWORD` | `flashcram` | Change before deployment. |
+| `OIDC_RP_CLIENT_ID` | empty | Authentik/OIDC client ID. |
+| `OIDC_RP_CLIENT_SECRET` | empty | Authentik/OIDC client secret; never commit real values. |
+| `OIDC_OP_AUTHORIZATION_ENDPOINT` | empty | OIDC authorization endpoint. |
+| `OIDC_OP_TOKEN_ENDPOINT` | empty | OIDC token endpoint. |
+| `OIDC_OP_USER_ENDPOINT` | empty | OIDC userinfo endpoint. |
+| `OIDC_OP_JWKS_ENDPOINT` | empty | OIDC JWKS endpoint. |
+| `DJANGO_SUPERUSER_USERNAME` | empty | Optional idempotent first-admin creation. |
+| `DJANGO_SUPERUSER_PASSWORD` | empty | Optional first-admin password. |
 | `USE_X_FORWARDED_HOST` | `False` | Set `True` behind a trusted reverse proxy if needed. |
 | `SECURE_PROXY_SSL_HEADER` | `False` | Set `True` when the proxy sends `X-Forwarded-Proto: https`. |
 | `SESSION_COOKIE_SECURE` | `False` | Set `True` for HTTPS-only sessions. |
@@ -203,11 +250,11 @@ Each card may have one optional image assigned to the front or back. Uploads acc
 
 ## Security Notes
 
-FlashCram is currently single-user and does not include login. For real deployment, keep it on a trusted LAN/VPN or put it behind reverse-proxy authentication. Always change `DJANGO_SECRET_KEY`, keep `DEBUG=False`, and prefer HTTPS for remote access.
+FlashCram requires authenticated users for app pages. Use HTTPS for WAN access, set `DEBUG=False`, change `DJANGO_SECRET_KEY`, use a strong Postgres password, and configure `ALLOWED_HOSTS` / `CSRF_TRUSTED_ORIGINS` for your public hostname.
 
 ## Project Status
 
-Completed phases include the Django/Docker scaffold, CRUD, review modes, import/export, mobile polish, markdown/LaTeX/code rendering, images, marked cards, and review/deck UX refinements. Future work may add multi-user auth and Postgres, but the default deployment is still SQLite.
+Completed phases include the Django/Docker scaffold, CRUD, review modes, import/export, mobile polish, markdown/LaTeX/code rendering, images, marked cards, review/deck UX refinements, deck organization, Postgres, OIDC auth, and per-user data scoping.
 
 ## License
 

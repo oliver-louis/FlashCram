@@ -1,13 +1,20 @@
 import uuid
 
+from django.conf import settings as django_settings
 from django.db import models
+from django.db.models.functions import Lower
 
 from .services import get_settings, is_weak_card, normalize_tags
 
 
 class Category(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=120, unique=True)
+    owner = models.ForeignKey(
+        django_settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="categories",
+    )
+    name = models.CharField(max_length=120)
     description = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -15,6 +22,13 @@ class Category(models.Model):
     class Meta:
         ordering = ["name", "created_at"]
         verbose_name_plural = "categories"
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"),
+                "owner",
+                name="unique_category_name_per_owner_ci",
+            )
+        ]
 
     def __str__(self):
         return self.name
@@ -22,6 +36,11 @@ class Category(models.Model):
 
 class Deck(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(
+        django_settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="decks",
+    )
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
@@ -53,8 +72,8 @@ class Deck(models.Model):
 
     @property
     def weak_count(self) -> int:
-        settings = get_settings()
-        return sum(1 for card in self.cards.all() if is_weak_card(card, settings))
+        user_settings = get_settings(self.owner)
+        return sum(1 for card in self.cards.all() if is_weak_card(card, user_settings))
 
     @property
     def hidden_count(self) -> int:
@@ -142,8 +161,6 @@ class Card(models.Model):
 
 
 class Settings(models.Model):
-    SINGLETON_PK = 1
-
     class Theme(models.TextChoices):
         DARK = "dark", "Dark"
         LIGHT = "light", "Light"
@@ -152,10 +169,10 @@ class Settings(models.Model):
         PLAINTEXT = "plaintext", "Plain text"
         MARKDOWN = "markdown", "Markdown"
 
-    id = models.PositiveSmallIntegerField(
-        primary_key=True,
-        default=SINGLETON_PK,
-        editable=False,
+    user = models.OneToOneField(
+        django_settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="flashcram_settings",
     )
     theme = models.CharField(max_length=20, choices=Theme.choices, default=Theme.DARK)
     weak_min_wrong = models.PositiveIntegerField(default=2)
@@ -172,9 +189,5 @@ class Settings(models.Model):
         verbose_name = "settings"
         verbose_name_plural = "settings"
 
-    def save(self, *args, **kwargs):
-        self.pk = self.SINGLETON_PK
-        super().save(*args, **kwargs)
-
     def __str__(self):
-        return "FlashCram settings"
+        return f"FlashCram settings for {self.user}"
