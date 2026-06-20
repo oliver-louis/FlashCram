@@ -1,11 +1,12 @@
 import json
 
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import BulkImportForm, CardForm, DeckForm, JsonImportForm, SettingsForm
+from .forms import BulkImportForm, CardForm, DeckCreateForm, DeckForm, JsonImportForm, SettingsForm
 from .models import Card, Deck
 from .rendering import RenderedFace, render_card_face, render_content
 from .services import (
@@ -51,6 +52,16 @@ def htmx_redirect(to):
     response = HttpResponse(status=204)
     response["HX-Redirect"] = to
     return response
+
+
+def populate_uploaded_json_text(post_data, files, file_field, text_field):
+    if post_data is None or post_data.get(text_field) or not files.get(file_field):
+        return post_data
+    try:
+        post_data[text_field] = files[file_field].read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        post_data[text_field] = ""
+    return post_data
 
 
 def home(request):
@@ -127,14 +138,19 @@ def card_list(request, deck_id):
 
 def deck_create(request):
     if request.method == "POST":
-        form = DeckForm(request.POST, user=request.user)
+        post_data = request.POST.copy()
+        populate_uploaded_json_text(post_data, request.FILES, "authoring_json_file", "authoring_json_text")
+        form = DeckCreateForm(post_data, request.FILES, user=request.user)
         if form.is_valid():
-            deck = form.save()
+            with transaction.atomic():
+                deck = form.save()
+                if form.authoring_result:
+                    create_cards_from_parsed(deck, form.authoring_result.cards, request.user)
             if request.htmx:
                 return htmx_redirect(reverse("cards:home"))
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = DeckForm(user=request.user)
+        form = DeckCreateForm(user=request.user)
 
     template = "cards/partials/deck_form.html" if request.htmx else "cards/deck_form_page.html"
     return render(
@@ -498,11 +514,7 @@ def bulk_import(request):
     json_result = None
     created_count = None
     post_data = request.POST.copy() if request.method == "POST" else None
-    if post_data is not None and request.FILES.get("authoring_json_file") and not post_data.get("authoring_json_text"):
-        try:
-            post_data["authoring_json_text"] = request.FILES["authoring_json_file"].read().decode("utf-8-sig")
-        except UnicodeDecodeError:
-            post_data["authoring_json_text"] = ""
+    populate_uploaded_json_text(post_data, request.FILES, "authoring_json_file", "authoring_json_text")
     initial = {}
     if request.method == "GET" and request.GET.get("deck"):
         initial["deck"] = request.GET.get("deck")
@@ -675,9 +687,14 @@ def settings_view(request):
                 settings_form.save()
                 return redirect("cards:settings")
         elif request.POST.get("form") == "json_import":
-            import_form = JsonImportForm(request.POST)
+            post_data = request.POST.copy()
+            populate_uploaded_json_text(post_data, request.FILES, "backup_json_file", "backup_json_text")
+            import_form = JsonImportForm(post_data, request.FILES)
             if import_form.is_valid():
-                import_result = import_backup(import_form.cleaned_data["backup_json"], request.user)
+                try:
+                    import_result = import_backup(import_form.cleaned_data["backup_json_text"], request.user)
+                except Exception as exc:
+                    import_form.add_error("backup_json_text", f"Backup JSON could not be imported: {exc}")
 
     return render(
         request,

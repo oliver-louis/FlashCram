@@ -66,14 +66,11 @@
         <p class="mt-1 fc-muted">Export everything, or paste a full backup to restore/upsert decks and cards.</p>
       </div>
       <a class="btn btn-outline fc-tap rounded-2xl" href="{% url 'cards:export_all' %}">Export all JSON</a>
-      <form method="post" class="space-y-4">
+      <form method="post" enctype="multipart/form-data" class="space-y-4">
         {% csrf_token %}
         <input type="hidden" name="form" value="json_import">
-        <label class="form-control">
-          <span class="label-text">Import JSON</span>
-          {{ import_form.backup_json }}
-          {{ import_form.backup_json.errors }}
-        </label>
+        {{ import_form.backup_json }}
+        {% include "cards/partials/json_upload.html" with file_field=import_form.backup_json_file text_field=import_form.backup_json_text eyebrow="Backup JSON" title="Upload a full backup" help_text="Use this for FlashCram full-backup JSON exported from Settings." text_label="Paste or inspect backup JSON" %}
         <button class="btn btn-primary fc-tap rounded-2xl" type="submit">Import all JSON</button>
       </form>
       {% if import_result %}

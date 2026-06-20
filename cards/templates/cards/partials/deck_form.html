@@ -1,6 +1,6 @@
 <section {% if deck %}id="deck-header"{% endif %} class="fc-card rounded-3xl p-5">
   <h2 class="mb-4 text-2xl font-black">{{ title }}</h2>
-  <form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="{% if deck %}#deck-header{% else %}#deck-list{% endif %}" hx-swap="{% if deck %}outerHTML{% else %}afterbegin{% endif %}" class="space-y-4">
+  <form method="post" action="{{ action_url }}" enctype="multipart/form-data" hx-post="{{ action_url }}" hx-encoding="multipart/form-data" hx-target="{% if deck %}#deck-header{% else %}#deck-list{% endif %}" hx-swap="{% if deck %}outerHTML{% else %}afterbegin{% endif %}" class="space-y-4">
     {% csrf_token %}
     {% if form.non_field_errors %}
       <div class="alert alert-error">{{ form.non_field_errors }}</div>
@@ -15,6 +15,16 @@
       {{ form.description }}
       {{ form.description.errors }}
     </label>
+    {% if form.authoring_json_file %}
+      <div class="rounded-3xl border border-base-content/10 bg-base-200/50 p-4">
+        <div class="mb-3">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-secondary">Optional</p>
+          <h3 class="mt-1 text-xl font-black">Create from JSON</h3>
+          <p class="mt-1 text-sm fc-muted">Upload authoring JSON to create this deck and add its cards immediately. A typed deck name overrides the JSON deck name.</p>
+        </div>
+        {% include "cards/partials/json_upload.html" with file_field=form.authoring_json_file text_field=form.authoring_json_text eyebrow="Authoring JSON" title="Upload a .json card set" help_text="Uses the same flashcram.cards.v1 format as Bulk Import." text_label="Paste or inspect authoring JSON" %}
+      </div>
+    {% endif %}
     <div
       class="form-control relative"
       x-data="{

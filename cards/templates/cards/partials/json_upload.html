@@ -1,0 +1,56 @@
+<div
+  class="space-y-3"
+  x-data="{
+    open: false,
+    jsonText: '',
+    fileName: '',
+    init() {
+      this.jsonText = this.$refs.jsonTextInput?.value || '';
+      this.open = Boolean(this.jsonText.trim());
+    },
+    loadFile(event) {
+      const file = event.target.files?.[0];
+      this.fileName = file?.name || '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        this.jsonText = reader.result || '';
+        this.open = true;
+      };
+      reader.readAsText(file);
+    }
+  }"
+>
+  <label class="block rounded-3xl border border-dashed border-base-content/25 bg-base-200/60 p-4">
+    <span class="block text-sm font-semibold uppercase tracking-[0.18em] text-primary">{{ eyebrow|default:"JSON file" }}</span>
+    <span class="mt-1 block text-lg font-black">{{ title|default:"Upload JSON" }}</span>
+    {% if help_text %}
+      <span class="mt-1 block text-sm fc-muted">{{ help_text }}</span>
+    {% endif %}
+    <span class="mt-4 block">{{ file_field }}</span>
+    {% if file_field.errors %}
+      <span class="mt-2 block text-sm text-error">{{ file_field.errors }}</span>
+    {% endif %}
+    <span class="mt-2 block text-sm fc-muted" x-show="fileName" x-text="'Loaded: ' + fileName"></span>
+  </label>
+
+  <button
+    class="btn btn-ghost btn-sm rounded-2xl"
+    type="button"
+    @click="open = !open"
+    :aria-expanded="open.toString()"
+  >
+    <span x-show="!open">Paste or inspect JSON</span>
+    <span x-cloak x-show="open">Hide JSON text</span>
+  </button>
+
+  <div class="space-y-2" x-cloak x-show="open" x-transition>
+    <label class="form-control">
+      <span class="label-text">{{ text_label|default:"JSON text" }}</span>
+      {{ text_field }}
+      {% if text_field.errors %}
+        <span class="mt-2 text-sm text-error">{{ text_field.errors }}</span>
+      {% endif %}
+    </label>
+  </div>
+</div>

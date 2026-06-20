@@ -10,8 +10,31 @@ from .services import (
     get_settings,
     is_authenticated_user,
     normalize_tags,
+    parse_authoring_json_cards,
     process_image_upload,
 )
+
+
+def json_file_widget():
+    return forms.ClearableFileInput(
+        attrs={
+            "accept": "application/json,.json",
+            "class": "file-input file-input-bordered h-14 w-full rounded-2xl",
+            "x-ref": "jsonFileInput",
+            "@change": "loadFile($event)",
+        }
+    )
+
+
+def json_text_widget():
+    return forms.Textarea(
+        attrs={
+            "class": "textarea textarea-bordered min-h-72 w-full rounded-2xl font-mono text-sm",
+            "rows": 14,
+            "x-ref": "jsonTextInput",
+            "x-model": "jsonText",
+        }
+    )
 
 
 class DeckForm(forms.ModelForm):
@@ -86,6 +109,45 @@ class DeckForm(forms.ModelForm):
         if commit:
             deck.save()
         return deck
+
+
+class DeckCreateForm(DeckForm):
+    authoring_json_file = forms.FileField(
+        required=False,
+        label="JSON file",
+        widget=json_file_widget(),
+    )
+    authoring_json_text = forms.CharField(
+        required=False,
+        label="JSON text",
+        widget=json_text_widget(),
+    )
+
+    class Meta(DeckForm.Meta):
+        fields = [*DeckForm.Meta.fields, "authoring_json_file", "authoring_json_text"]
+
+    def __init__(self, *args, **kwargs):
+        self.authoring_result = None
+        super().__init__(*args, **kwargs)
+        self.fields["name"].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        name = (cleaned_data.get("name") or "").strip()
+        payload = (cleaned_data.get("authoring_json_text") or "").strip()
+
+        if payload:
+            try:
+                self.authoring_result = parse_authoring_json_cards(payload, self.user)
+            except ValueError as exc:
+                self.add_error("authoring_json_text", str(exc))
+                return cleaned_data
+
+        if not name and self.authoring_result and self.authoring_result.deck_name:
+            cleaned_data["name"] = self.authoring_result.deck_name
+        elif not name:
+            self.add_error("name", "Enter a deck name or upload JSON with a deck name.")
+        return cleaned_data
 
 
 class CardForm(forms.ModelForm):
@@ -254,18 +316,11 @@ class BulkImportForm(forms.Form):
     )
     authoring_json_file = forms.FileField(
         required=False,
-        widget=forms.ClearableFileInput(
-            attrs={
-                "accept": "application/json,.json",
-                "class": "file-input file-input-bordered h-14 w-full rounded-2xl",
-            }
-        ),
+        widget=json_file_widget(),
     )
     authoring_json_text = forms.CharField(
         required=False,
-        widget=forms.Textarea(
-            attrs={"class": "textarea textarea-bordered min-h-72 w-full rounded-2xl font-mono text-sm", "rows": 14}
-        ),
+        widget=json_text_widget(),
     )
 
     def __init__(self, *args, **kwargs):
@@ -275,6 +330,27 @@ class BulkImportForm(forms.Form):
 
 
 class JsonImportForm(forms.Form):
-    backup_json = forms.CharField(
-        widget=forms.Textarea(attrs={"class": "textarea textarea-bordered min-h-72 w-full rounded-2xl", "rows": 14})
+    backup_json_file = forms.FileField(
+        required=False,
+        label="Backup JSON file",
+        widget=json_file_widget(),
     )
+    backup_json_text = forms.CharField(
+        required=False,
+        label="Backup JSON text",
+        widget=json_text_widget(),
+    )
+    backup_json = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        backup_json_text = (cleaned_data.get("backup_json_text") or "").strip()
+        legacy_backup_json = (cleaned_data.get("backup_json") or "").strip()
+        if not backup_json_text and legacy_backup_json:
+            cleaned_data["backup_json_text"] = legacy_backup_json
+        if not (cleaned_data.get("backup_json_text") or "").strip():
+            self.add_error("backup_json_text", "Upload a backup JSON file or paste backup JSON before importing.")
+        return cleaned_data

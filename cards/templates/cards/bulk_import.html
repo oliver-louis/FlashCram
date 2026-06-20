@@ -203,16 +203,7 @@ Example markdown card with code:
             </div>
           </details>
 
-          <label class="form-control">
-            <span class="label-text">JSON file</span>
-            {{ form.authoring_json_file }}
-            {{ form.authoring_json_file.errors }}
-          </label>
-          <label class="form-control">
-            <span class="label-text">Or paste JSON</span>
-            {{ form.authoring_json_text }}
-            {{ form.authoring_json_text.errors }}
-          </label>
+          {% include "cards/partials/json_upload.html" with file_field=form.authoring_json_file text_field=form.authoring_json_text eyebrow="Authoring JSON" title="Upload a .json card set" help_text="Browse or drag a structured authoring JSON file here. The text view opens after a file loads." text_label="Paste or inspect authoring JSON" %}
           <div class="grid gap-3 sm:flex">
             <button class="btn btn-secondary btn-lg fc-tap rounded-2xl" type="submit" name="intent" value="json_preview">Preview JSON</button>
             {% if json_result and json_result.cards %}
