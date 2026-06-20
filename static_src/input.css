@@ -200,7 +200,9 @@
   }
 
   .fc-review-panel {
-    max-height: calc(100dvh - 5.5rem);
+    min-height: 0 !important;
+    height: 100%;
+    max-height: 100%;
     overflow: hidden;
     overscroll-behavior: contain;
   }
@@ -397,17 +399,25 @@
     backdrop-filter: blur(18px);
   }
 
-  @media (max-width: 767px) {
-    .fc-shell:has(#review-panel) {
-      min-height: calc(100dvh - 4rem);
-      overflow: hidden;
-      padding-top: 0.75rem;
-      padding-bottom: 0;
-    }
+  body:has(#review-panel) {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
 
+  .fc-shell:has(#review-panel) {
+    min-height: 0 !important;
+    height: calc(100dvh - 4rem);
+    max-height: calc(100dvh - 4rem);
+    overflow: hidden;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0 !important;
+  }
+
+  @media (max-width: 767px) {
     .fc-review-panel {
-      height: calc(100dvh - 5.5rem);
-      max-height: calc(100dvh - 5.5rem);
+      height: 100%;
+      max-height: 100%;
     }
 
     .fc-review-card-stage {
