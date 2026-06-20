@@ -149,6 +149,23 @@ class RenderingTests(TestCase):
         self.assertIn("window.flashcramFitReviewText = function(root)", html)
         self.assertIn("querySelectorAll('#review-panel .fc-review-content')", html)
 
+    def test_review_swipe_surface_does_not_transform_layout_card(self):
+        css = Path("static_src/input.css").read_text()
+
+        card_rule = css.split(".fc-review-card {", 1)[1].split("\n  }", 1)[0]
+        self.assertNotIn("translate3d", card_rule)
+        self.assertIn(".fc-review-card-stage", css)
+        self.assertIn("contain: layout paint", css)
+        self.assertIn("isolation: isolate", css)
+        self.assertIn(".fc-review-card-surface", css)
+        self.assertIn("transform: translate3d(var(--fc-swipe-x, 0), var(--fc-swipe-y, 0), 0) rotate(var(--fc-swipe-rotate, 0deg))", css)
+        self.assertIn("will-change: transform", css)
+        self.assertIn(".fc-review-card-returning", css)
+        self.assertIn(".fc-review-card-committing", css)
+        self.assertIn(".fc-shell:has(#review-panel)", css)
+        self.assertIn("height: calc(100dvh - 5.5rem)", css)
+        self.assertIn("overscroll-behavior: contain", css)
+
 
 class PreviewViewTests(AuthenticatedTestCase):
     def setUp(self):

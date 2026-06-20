@@ -26,7 +26,9 @@
       reviewSwipeEnabled: {{ review_swipe_enabled|yesno:'true,false' }},
       isHiddenMode: {{ is_hidden_mode|yesno:'true,false' }},
       justSwiped: false,
-      swipe: { tracking: false, active: false, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, action: '', contentScrollable: false, contentAtTop: true },
+      swipeReturning: false,
+      swipeCommitting: false,
+      swipe: { tracking: false, active: false, pointerId: null, startX: 0, startY: 0, action: '', contentScrollable: false, contentAtTop: true, raf: 0, pendingX: 0, pendingY: 0, pendingAction: '' },
       refitMath() {
         this.$nextTick(() => window.requestAnimationFrame(() => {
           window.flashcramFitMath?.(this.$root);
@@ -47,25 +49,60 @@
       interactiveSwipeTarget(target) {
         return Boolean(target.closest('button, a, input, textarea, select, label, form, math-field, [data-no-swipe], .fc-review-tags, .fc-bottom-actions'));
       },
+      freshSwipeState() {
+        return { tracking: false, active: false, pointerId: null, startX: 0, startY: 0, action: '', contentScrollable: false, contentAtTop: true, raf: 0, pendingX: 0, pendingY: 0, pendingAction: '' };
+      },
+      setSwipeVisual(x, y, action) {
+        this.swipe.pendingX = x;
+        this.swipe.pendingY = y;
+        this.swipe.pendingAction = action;
+        if (this.swipe.raf) return;
+        this.swipe.raf = window.requestAnimationFrame(() => {
+          const surface = this.$refs.reviewCardSurface;
+          this.swipe.raf = 0;
+          this.swipe.action = this.swipe.pendingAction;
+          if (!surface) return;
+          surface.style.setProperty('--fc-swipe-x', `${this.swipe.pendingX}px`);
+          surface.style.setProperty('--fc-swipe-y', `${this.swipe.pendingY}px`);
+          surface.style.setProperty('--fc-swipe-rotate', `${this.swipe.pendingX / 28}deg`);
+        });
+      },
+      snapBackSwipe() {
+        if (this.swipe.raf) window.cancelAnimationFrame(this.swipe.raf);
+        this.swipeReturning = true;
+        this.swipeCommitting = false;
+        this.swipe = this.freshSwipeState();
+        this.setSwipeVisual(0, 0, '');
+        window.setTimeout(() => { this.swipeReturning = false; }, 170);
+      },
       resetSwipe() {
-        this.swipe = { tracking: false, active: false, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, action: '', contentScrollable: false, contentAtTop: true };
+        if (this.swipe.raf) window.cancelAnimationFrame(this.swipe.raf);
+        this.swipeReturning = false;
+        this.swipeCommitting = false;
+        this.swipe = this.freshSwipeState();
+        this.setSwipeVisual(0, 0, '');
       },
       beginSwipe(event) {
         if (!this.revealed || !this.reviewSwipeEnabled || this.isHiddenMode || !this.mobileSwipeAllowed() || this.interactiveSwipeTarget(event.target) || (event.button !== undefined && event.button !== 0)) return;
         const content = this.$root.querySelector('.fc-review-content');
         const canScroll = Boolean(content && content.scrollHeight > content.clientHeight + 2);
+        this.swipeReturning = false;
+        this.swipeCommitting = false;
         this.swipe = {
           tracking: true,
           active: false,
           pointerId: event.pointerId,
           startX: event.clientX,
           startY: event.clientY,
-          x: 0,
-          y: 0,
           action: '',
           contentScrollable: canScroll,
-          contentAtTop: !content || content.scrollTop <= 1
+          contentAtTop: !content || content.scrollTop <= 1,
+          raf: 0,
+          pendingX: 0,
+          pendingY: 0,
+          pendingAction: ''
         };
+        this.setSwipeVisual(0, 0, '');
         event.currentTarget.setPointerCapture?.(event.pointerId);
       },
       updateSwipe(event) {
@@ -94,38 +131,48 @@
           }
         }
         event.preventDefault();
-        const width = this.$refs.reviewCard?.clientWidth || 320;
+        const width = this.$refs.reviewCardStage?.clientWidth || 320;
         const horizontalThreshold = Math.min(140, Math.max(90, width * 0.28));
         const downThreshold = 110;
-        this.swipe.x = Math.max(Math.min(dx, width * 0.34), width * -0.34);
-        this.swipe.y = Math.max(Math.min(dy, 150), -60);
+        const visualX = Math.max(Math.min(dx, width * 0.34), width * -0.34);
+        const visualY = Math.max(Math.min(dy, 150), -60);
+        let action = '';
         if (absX >= horizontalThreshold && absX > absY * 1.2) {
-          this.swipe.action = dx > 0 ? 'got_it' : 'wrong';
+          action = dx > 0 ? 'got_it' : 'wrong';
         } else if (dy >= downThreshold && dy > absX * 1.35 && (!this.swipe.contentScrollable || this.swipe.contentAtTop)) {
-          this.swipe.action = 'skip';
-        } else {
-          this.swipe.action = '';
+          action = 'skip';
         }
+        this.setSwipeVisual(visualX, visualY, action);
       },
       endSwipe(event) {
         if (!this.swipe.tracking || event.pointerId !== this.swipe.pointerId) return;
         const wasActive = this.swipe.active;
-        const action = this.swipe.action;
+        const action = this.swipe.pendingAction || this.swipe.action;
         if (wasActive) {
           event.preventDefault();
           this.justSwiped = true;
           window.setTimeout(() => { this.justSwiped = false; }, 80);
         }
-        this.resetSwipe();
-        if (action) this.submitSwipeAction(action);
+        if (action) {
+          this.commitSwipe(action);
+        } else {
+          this.snapBackSwipe();
+        }
       },
       submitSwipeAction(action) {
         const refs = { wrong: this.$refs.swipeWrong, got_it: this.$refs.swipeCorrect, skip: this.$refs.swipeSkip };
         refs[action]?.requestSubmit();
       },
-      swipeStyle() {
-        const rotate = this.swipe.x / 28;
-        return `--fc-swipe-x: ${this.swipe.x}px; --fc-swipe-y: ${this.swipe.y}px; --fc-swipe-rotate: ${rotate}deg;`;
+      commitSwipe(action) {
+        const width = this.$refs.reviewCardStage?.clientWidth || window.innerWidth || 360;
+        const exitX = action === 'got_it' ? width * 1.12 : action === 'wrong' ? width * -1.12 : 0;
+        const exitY = action === 'skip' ? 190 : this.swipe.pendingY;
+        this.swipeCommitting = true;
+        this.swipeReturning = false;
+        this.swipe.tracking = false;
+        this.swipe.active = false;
+        this.setSwipeVisual(exitX, exitY, action);
+        window.setTimeout(() => this.submitSwipeAction(action), 95);
       },
       swipeLabel() {
         return this.swipe.action === 'got_it' ? 'Correct' : this.swipe.action === 'wrong' ? 'Incorrect' : this.swipe.action === 'skip' ? 'Skip' : '';
@@ -146,53 +193,55 @@
       </form>
     {% endif %}
 
-    <div role="button" tabindex="0" x-ref="reviewCard" class="fc-review-card relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl p-5 text-left transition sm:p-6" :class="{ 'fc-review-card-swiping': swipe.active, 'fc-swipe-correct': swipe.action === 'got_it', 'fc-swipe-incorrect': swipe.action === 'wrong', 'fc-swipe-skip': swipe.action === 'skip' }" :style="swipeStyle()" @pointerdown="beginSwipe($event)" @pointermove="updateSwipe($event)" @pointerup="endSwipe($event)" @pointercancel="resetSwipe()" @click="toggleReveal()" @keydown.enter.prevent="toggleReveal()" @keydown.space.prevent="toggleReveal()">
-      <div class="fc-swipe-overlay pointer-events-none" x-cloak x-show="swipe.active && swipeLabel()" x-transition.opacity>
-        <span x-text="swipeLabel()"></span>
-      </div>
-      <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
-        <div class="flex items-center gap-2">
-          {% if card.is_marked %}
-            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-secondary text-sm font-black text-secondary-content shadow-sm shadow-secondary/30" aria-label="Marked card" title="Marked card">
-              <span aria-hidden="true">★</span>
-            </span>
-          {% endif %}
-          <span class="badge badge-outline min-w-14 rounded-xl text-center" x-text="revealed ? 'Back' : 'Flip'" :aria-label="revealed ? 'Tap card to flip back to the front' : 'Tap card to reveal the back'" :title="revealed ? 'Tap card to flip back' : 'Tap card to reveal'">Flip</span>
-          <form method="post" action="{% url 'cards:review_grade' 'skip' %}" @click.stop>
-            {% csrf_token %}
-            <button class="btn btn-ghost btn-sm btn-square rounded-2xl text-xl" type="submit" hx-post="{% url 'cards:review_grade' 'skip' %}" hx-target="#review-panel" hx-swap="outerHTML" aria-label="Skip this card" title="Skip this card">
-              <span aria-hidden="true">→</span>
-            </button>
-          </form>
+    <div x-ref="reviewCardStage" class="fc-review-card-stage relative min-h-0 flex-1 overflow-hidden rounded-3xl">
+      <div role="button" tabindex="0" x-ref="reviewCardSurface" class="fc-review-card fc-review-card-surface absolute inset-0 flex min-h-0 flex-col rounded-3xl p-5 text-left sm:p-6" :class="{ 'fc-review-card-swiping': swipe.active, 'fc-review-card-returning': swipeReturning, 'fc-review-card-committing': swipeCommitting, 'fc-swipe-correct': swipe.action === 'got_it', 'fc-swipe-incorrect': swipe.action === 'wrong', 'fc-swipe-skip': swipe.action === 'skip' }" @pointerdown="beginSwipe($event)" @pointermove="updateSwipe($event)" @pointerup="endSwipe($event)" @pointercancel="snapBackSwipe()" @click="toggleReveal()" @keydown.enter.prevent="toggleReveal()" @keydown.space.prevent="toggleReveal()">
+        <div class="fc-swipe-overlay pointer-events-none" x-cloak x-show="(swipe.active || swipeCommitting) && swipeLabel()">
+          <span x-text="swipeLabel()"></span>
         </div>
-      </div>
-      <div class="fc-review-content mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pr-1">
-        <div class="fc-review-face text-2xl leading-tight sm:text-3xl" x-show="!revealed">
-          <div class="fc-review-face-inner">
-            {% with rendered_face=rendered_front %}
-              {% include "cards/partials/rendered_face.html" %}
-            {% endwith %}
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
+          <div class="flex items-center gap-2">
+            {% if card.is_marked %}
+              <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-secondary text-sm font-black text-secondary-content shadow-sm shadow-secondary/30" aria-label="Marked card" title="Marked card">
+                <span aria-hidden="true">★</span>
+              </span>
+            {% endif %}
+            <span class="badge badge-outline min-w-14 rounded-xl text-center" x-text="revealed ? 'Back' : 'Flip'" :aria-label="revealed ? 'Tap card to flip back to the front' : 'Tap card to reveal the back'" :title="revealed ? 'Tap card to flip back' : 'Tap card to reveal'">Flip</span>
+            <form method="post" action="{% url 'cards:review_grade' 'skip' %}" @click.stop>
+              {% csrf_token %}
+              <button class="btn btn-ghost btn-sm btn-square rounded-2xl text-xl" type="submit" hx-post="{% url 'cards:review_grade' 'skip' %}" hx-target="#review-panel" hx-swap="outerHTML" aria-label="Skip this card" title="Skip this card">
+                <span aria-hidden="true">→</span>
+              </button>
+            </form>
           </div>
         </div>
-        <div class="fc-review-face text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
-          <div class="fc-review-face-inner">
-            {% with rendered_face=rendered_back %}
-              {% include "cards/partials/rendered_face.html" %}
-            {% endwith %}
+        <div class="fc-review-content mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pr-1">
+          <div class="fc-review-face text-2xl leading-tight sm:text-3xl" x-show="!revealed">
+            <div class="fc-review-face-inner">
+              {% with rendered_face=rendered_front %}
+                {% include "cards/partials/rendered_face.html" %}
+              {% endwith %}
+            </div>
+          </div>
+          <div class="fc-review-face text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
+            <div class="fc-review-face-inner">
+              {% with rendered_face=rendered_back %}
+                {% include "cards/partials/rendered_face.html" %}
+              {% endwith %}
+            </div>
           </div>
         </div>
+        {% if card.tags %}
+          <div class="fc-review-tags mt-3 border-t border-base-content/10 pt-3" @click.stop>
+            <button class="btn btn-ghost btn-xs rounded-2xl" type="button" @click="showTags = !showTags" :class="showTags ? 'btn-active' : ''">Tags</button>
+            <div class="mt-2 flex flex-wrap gap-2" x-cloak x-show="showTags">
+              {% for tag in card.tags %}
+                <span class="badge badge-outline rounded-xl">{{ tag }}</span>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
       </div>
-      {% if card.tags %}
-        <div class="fc-review-tags mt-3 border-t border-base-content/10 pt-3" @click.stop>
-          <button class="btn btn-ghost btn-xs rounded-2xl" type="button" @click="showTags = !showTags" :class="showTags ? 'btn-active' : ''">Tags</button>
-          <div class="mt-2 flex flex-wrap gap-2" x-cloak x-show="showTags">
-            {% for tag in card.tags %}
-              <span class="badge badge-outline rounded-xl">{{ tag }}</span>
-            {% endfor %}
-          </div>
-        </div>
-      {% endif %}
     </div>
 
     <div class="fc-bottom-actions sticky bottom-0 z-40" x-cloak x-show="revealed">
