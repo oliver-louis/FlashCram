@@ -123,6 +123,55 @@
       linear-gradient(145deg, var(--fc-surface), var(--fc-surface-raised)),
       var(--fc-surface);
     box-shadow: 0 24px 70px var(--fc-shadow);
+    transform: translate3d(var(--fc-swipe-x, 0), var(--fc-swipe-y, 0), 0) rotate(var(--fc-swipe-rotate, 0deg));
+    touch-action: pan-y;
+    will-change: transform;
+  }
+
+  .fc-review-card-swiping {
+    transition: none;
+  }
+
+  .fc-review-card.fc-swipe-correct {
+    border-color: color-mix(in srgb, #00c6ff 70%, #10b981);
+    box-shadow: 0 20px 70px color-mix(in srgb, #00c6ff 30%, transparent);
+  }
+
+  .fc-review-card.fc-swipe-incorrect {
+    border-color: color-mix(in srgb, #fb7185 70%, var(--fc-border));
+    box-shadow: 0 20px 70px color-mix(in srgb, #fb7185 28%, transparent);
+  }
+
+  .fc-review-card.fc-swipe-skip {
+    border-color: color-mix(in srgb, #005aff 70%, #00c6ff);
+    box-shadow: 0 20px 70px color-mix(in srgb, #005aff 28%, transparent);
+  }
+
+  .fc-swipe-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    border-radius: inherit;
+    background: color-mix(in srgb, var(--fc-surface) 44%, transparent);
+    color: var(--fc-text);
+    font-size: clamp(2.25rem, 11vw, 5rem);
+    font-weight: 900;
+    letter-spacing: 0;
+    text-shadow: 0 4px 24px var(--fc-shadow);
+  }
+
+  .fc-swipe-correct .fc-swipe-overlay {
+    color: #00c6ff;
+  }
+
+  .fc-swipe-incorrect .fc-swipe-overlay {
+    color: #fb7185;
+  }
+
+  .fc-swipe-skip .fc-swipe-overlay {
+    color: #005aff;
   }
 
   .fc-review-panel {

@@ -184,6 +184,7 @@ class Settings(models.Model):
         choices=DefaultContentFormat.choices,
         default=DefaultContentFormat.PLAINTEXT,
     )
+    review_swipe_enabled = models.BooleanField(default=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

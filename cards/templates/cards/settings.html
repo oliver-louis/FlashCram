@@ -57,6 +57,13 @@
         <span class="label-text">Default new-card format</span>
         {{ settings_form.default_content_format }}
       </label>
+      <label class="flex items-center justify-between gap-4 rounded-2xl border border-base-content/10 p-4">
+        <span>
+          <span class="block font-semibold">{{ settings_form.review_swipe_enabled.label }}</span>
+          <span class="block text-sm fc-muted">Swipe left/right/down after flipping a card on mobile.</span>
+        </span>
+        {{ settings_form.review_swipe_enabled }}
+      </label>
       <button class="btn btn-primary fc-tap rounded-2xl" type="submit">Save settings</button>
     </form>
 

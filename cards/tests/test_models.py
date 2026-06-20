@@ -27,6 +27,12 @@ class SettingsTests(TestCase):
         self.assertEqual(Settings.objects.count(), 2)
         self.assertEqual(settings_b.weak_min_wrong, 2)
 
+    def test_review_swipe_enabled_defaults_true(self):
+        user = test_user("settings-swipe")
+        settings = get_settings(user)
+
+        self.assertTrue(settings.review_swipe_enabled)
+
 
 class TagNormalizationTests(TestCase):
     def test_normalize_tags_from_iterable(self):

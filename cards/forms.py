@@ -274,7 +274,14 @@ class CardForm(forms.ModelForm):
 class SettingsForm(forms.ModelForm):
     class Meta:
         model = Settings
-        fields = ["theme", "weak_min_wrong", "weak_min_ratio", "show_less_weight", "default_content_format"]
+        fields = [
+            "theme",
+            "weak_min_wrong",
+            "weak_min_ratio",
+            "show_less_weight",
+            "default_content_format",
+            "review_swipe_enabled",
+        ]
         widgets = {
             "theme": forms.Select(attrs={"class": "select select-bordered h-14 w-full rounded-2xl"}),
             "weak_min_wrong": forms.NumberInput(attrs={"class": "input input-bordered h-14 w-full rounded-2xl", "min": 0}),
@@ -285,6 +292,10 @@ class SettingsForm(forms.ModelForm):
                 attrs={"class": "input input-bordered h-14 w-full rounded-2xl", "min": 0, "step": "0.01"}
             ),
             "default_content_format": forms.Select(attrs={"class": "select select-bordered h-14 w-full rounded-2xl"}),
+            "review_swipe_enabled": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
+        }
+        labels = {
+            "review_swipe_enabled": "Enable mobile swipe review gestures",
         }
 
     def __init__(self, *args, **kwargs):

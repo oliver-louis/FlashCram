@@ -7,7 +7,7 @@ from pathlib import Path
 
 from cards.models import Card, Category, Deck, Settings
 from cards.tests.utils import AuthenticatedTestCase, create_category, create_deck, test_user
-from cards.services import REVIEW_SESSION_KEY
+from cards.services import REVIEW_SESSION_KEY, get_settings
 
 
 HTMX = {"HTTP_HX_REQUEST": "true"}
@@ -578,6 +578,20 @@ class ReviewAllViewTests(AuthenticatedTestCase):
         self.assertContains(response, "fc-review-face")
         self.assertContains(response, "fc-review-face-inner")
         self.assertContains(response, "flashcramFitReviewText?.(this.$root)")
+        self.assertContains(response, "reviewSwipeEnabled: true")
+        self.assertContains(response, "mobileSwipeAllowed()")
+        self.assertContains(response, "interactiveSwipeTarget")
+        self.assertContains(response, "beginSwipe($event)")
+        self.assertContains(response, "updateSwipe($event)")
+        self.assertContains(response, "endSwipe($event)")
+        self.assertContains(response, "x-ref=\"swipeWrong\"")
+        self.assertContains(response, "x-ref=\"swipeCorrect\"")
+        self.assertContains(response, "x-ref=\"swipeSkip\"")
+        self.assertContains(response, "submitSwipeAction(action)")
+        self.assertContains(response, "wrong: this.$refs.swipeWrong")
+        self.assertContains(response, "got_it: this.$refs.swipeCorrect")
+        self.assertContains(response, "skip: this.$refs.swipeSkip")
+        self.assertContains(response, "fc-swipe-overlay")
         self.assertContains(response, "absolute bottom-full right-0 mb-3")
         self.assertContains(response, "Show Less")
         self.assertContains(response, "Mark")
@@ -710,6 +724,17 @@ class ReviewAllViewTests(AuthenticatedTestCase):
         self.assertContains(response, "fc-review-tags")
         self.assertContains(response, 'x-show="showTags"')
 
+    def test_review_swipe_respects_user_setting(self):
+        settings = get_settings(self.user)
+        settings.review_swipe_enabled = False
+        settings.save(update_fields=["review_swipe_enabled"])
+        self.make_card("first")
+
+        response = self.start_review()
+
+        self.assertContains(response, "reviewSwipeEnabled: false")
+        self.assertContains(response, "beginSwipe($event)")
+
     def test_review_tags_are_positioned_below_card_content(self):
         self.make_card("tagged", tags=["exam"])
 
@@ -794,8 +819,11 @@ class ReviewAllViewTests(AuthenticatedTestCase):
         self.assertEqual(session["queue"], [str(first.id), str(second.id)])
         self.assertContains(response, "Hidden cards")
         self.assertContains(response, "Restore")
-        self.assertNotContains(response, "Incorrect")
-        self.assertNotContains(response, "Correct")
+        self.assertNotContains(response, ">Incorrect</button>")
+        self.assertNotContains(response, ">Correct</button>")
+        self.assertContains(response, "isHiddenMode: true")
+        self.assertNotContains(response, "x-ref=\"swipeWrong\"")
+        self.assertNotContains(response, "x-ref=\"swipeCorrect\"")
 
         response = self.grade("restore")
         first.refresh_from_db()
@@ -1194,6 +1222,7 @@ class PhaseTwoViewTests(AuthenticatedTestCase):
                 "weak_min_wrong": 3,
                 "weak_min_ratio": 0.5,
                 "show_less_weight": 0.1,
+                "review_swipe_enabled": "on",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -1203,6 +1232,7 @@ class PhaseTwoViewTests(AuthenticatedTestCase):
         self.assertEqual(settings.weak_min_wrong, 3)
         self.assertEqual(settings.weak_min_ratio, 0.5)
         self.assertEqual(settings.show_less_weight, 0.1)
+        self.assertTrue(settings.review_swipe_enabled)
 
         home = self.client.get(reverse("cards:home"))
         self.assertContains(home, 'data-theme="light"')
@@ -1418,12 +1448,32 @@ class PhaseThreePolishTests(AuthenticatedTestCase):
                     "weak_min_wrong": 2,
                     "weak_min_ratio": 0.33,
                     "show_less_weight": 0.25,
+                    "review_swipe_enabled": "on",
                 },
             )
             self.assertEqual(response.status_code, 302)
             self.assertEqual(Settings.objects.get(user=self.user).theme, theme)
             home = self.client.get(reverse("cards:home"))
             self.assertContains(home, f'data-theme="{theme}"')
+
+    def test_review_swipe_setting_can_be_disabled_and_renders_toggle(self):
+        response = self.client.post(
+            reverse("cards:settings"),
+            {
+                "form": "settings",
+                "theme": Settings.Theme.DARK,
+                "weak_min_wrong": 2,
+                "weak_min_ratio": 0.33,
+                "show_less_weight": 0.25,
+                "default_content_format": Settings.DefaultContentFormat.PLAINTEXT,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Settings.objects.get(user=self.user).review_swipe_enabled)
+
+        settings_page = self.client.get(reverse("cards:settings"))
+        self.assertContains(settings_page, "Enable mobile swipe review gestures")
 
 
 class UiAssetTests(AuthenticatedTestCase):

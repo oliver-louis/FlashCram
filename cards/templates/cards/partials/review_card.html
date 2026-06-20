@@ -23,6 +23,10 @@
       revealed: {{ initial_revealed|yesno:'true,false' }},
       menuOpen: false,
       showTags: {{ show_tags_default|yesno:'true,false' }},
+      reviewSwipeEnabled: {{ review_swipe_enabled|yesno:'true,false' }},
+      isHiddenMode: {{ is_hidden_mode|yesno:'true,false' }},
+      justSwiped: false,
+      swipe: { tracking: false, active: false, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, action: '', contentScrollable: false, contentAtTop: true },
       refitMath() {
         this.$nextTick(() => window.requestAnimationFrame(() => {
           window.flashcramFitMath?.(this.$root);
@@ -30,14 +34,122 @@
         }));
       },
       toggleReveal() {
+        if (this.justSwiped) {
+          this.justSwiped = false;
+          return;
+        }
         this.revealed = !this.revealed;
         this.refitMath();
+      },
+      mobileSwipeAllowed() {
+        return window.matchMedia?.('(hover: none) and (pointer: coarse)')?.matches || window.innerWidth < 640;
+      },
+      interactiveSwipeTarget(target) {
+        return Boolean(target.closest('button, a, input, textarea, select, label, form, math-field, [data-no-swipe], .fc-review-tags, .fc-bottom-actions'));
+      },
+      resetSwipe() {
+        this.swipe = { tracking: false, active: false, pointerId: null, startX: 0, startY: 0, x: 0, y: 0, action: '', contentScrollable: false, contentAtTop: true };
+      },
+      beginSwipe(event) {
+        if (!this.revealed || !this.reviewSwipeEnabled || this.isHiddenMode || !this.mobileSwipeAllowed() || this.interactiveSwipeTarget(event.target) || (event.button !== undefined && event.button !== 0)) return;
+        const content = this.$root.querySelector('.fc-review-content');
+        const canScroll = Boolean(content && content.scrollHeight > content.clientHeight + 2);
+        this.swipe = {
+          tracking: true,
+          active: false,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          x: 0,
+          y: 0,
+          action: '',
+          contentScrollable: canScroll,
+          contentAtTop: !content || content.scrollTop <= 1
+        };
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      },
+      updateSwipe(event) {
+        if (!this.swipe.tracking || event.pointerId !== this.swipe.pointerId) return;
+        const dx = event.clientX - this.swipe.startX;
+        const dy = event.clientY - this.swipe.startY;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
+        if (!this.swipe.active) {
+          if (absX < 8 && absY < 8) return;
+          const horizontalIntent = absX > 24 && absX > absY * 1.25;
+          const downIntent = dy > 28 && dy > absX * 1.35;
+          if (horizontalIntent) {
+            this.swipe.active = true;
+          } else if (downIntent) {
+            if (this.swipe.contentScrollable && !this.swipe.contentAtTop) {
+              this.resetSwipe();
+              return;
+            }
+            this.swipe.active = true;
+          } else if (absY > absX && this.swipe.contentScrollable) {
+            this.resetSwipe();
+            return;
+          } else {
+            return;
+          }
+        }
+        event.preventDefault();
+        const width = this.$refs.reviewCard?.clientWidth || 320;
+        const horizontalThreshold = Math.min(140, Math.max(90, width * 0.28));
+        const downThreshold = 110;
+        this.swipe.x = Math.max(Math.min(dx, width * 0.34), width * -0.34);
+        this.swipe.y = Math.max(Math.min(dy, 150), -60);
+        if (absX >= horizontalThreshold && absX > absY * 1.2) {
+          this.swipe.action = dx > 0 ? 'got_it' : 'wrong';
+        } else if (dy >= downThreshold && dy > absX * 1.35 && (!this.swipe.contentScrollable || this.swipe.contentAtTop)) {
+          this.swipe.action = 'skip';
+        } else {
+          this.swipe.action = '';
+        }
+      },
+      endSwipe(event) {
+        if (!this.swipe.tracking || event.pointerId !== this.swipe.pointerId) return;
+        const wasActive = this.swipe.active;
+        const action = this.swipe.action;
+        if (wasActive) {
+          event.preventDefault();
+          this.justSwiped = true;
+          window.setTimeout(() => { this.justSwiped = false; }, 80);
+        }
+        this.resetSwipe();
+        if (action) this.submitSwipeAction(action);
+      },
+      submitSwipeAction(action) {
+        const refs = { wrong: this.$refs.swipeWrong, got_it: this.$refs.swipeCorrect, skip: this.$refs.swipeSkip };
+        refs[action]?.requestSubmit();
+      },
+      swipeStyle() {
+        const rotate = this.swipe.x / 28;
+        return `--fc-swipe-x: ${this.swipe.x}px; --fc-swipe-y: ${this.swipe.y}px; --fc-swipe-rotate: ${rotate}deg;`;
+      },
+      swipeLabel() {
+        return this.swipe.action === 'got_it' ? 'Correct' : this.swipe.action === 'wrong' ? 'Incorrect' : this.swipe.action === 'skip' ? 'Skip' : '';
       }
     }"
     x-init="refitMath()"
     class="flex min-h-0 flex-1 flex-col gap-3"
   >
-    <div role="button" tabindex="0" class="fc-review-card flex min-h-0 flex-1 flex-col rounded-3xl p-5 text-left transition active:scale-[0.99] sm:p-6" @click="toggleReveal()" @keydown.enter.prevent="toggleReveal()" @keydown.space.prevent="toggleReveal()">
+    {% if not is_hidden_mode %}
+      <form class="hidden" method="post" action="{% url 'cards:review_grade' 'wrong' %}" x-ref="swipeWrong" hx-post="{% url 'cards:review_grade' 'wrong' %}" hx-target="#review-panel" hx-swap="outerHTML">
+        {% csrf_token %}
+      </form>
+      <form class="hidden" method="post" action="{% url 'cards:review_grade' 'got_it' %}" x-ref="swipeCorrect" hx-post="{% url 'cards:review_grade' 'got_it' %}" hx-target="#review-panel" hx-swap="outerHTML">
+        {% csrf_token %}
+      </form>
+      <form class="hidden" method="post" action="{% url 'cards:review_grade' 'skip' %}" x-ref="swipeSkip" hx-post="{% url 'cards:review_grade' 'skip' %}" hx-target="#review-panel" hx-swap="outerHTML">
+        {% csrf_token %}
+      </form>
+    {% endif %}
+
+    <div role="button" tabindex="0" x-ref="reviewCard" class="fc-review-card relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl p-5 text-left transition sm:p-6" :class="{ 'fc-review-card-swiping': swipe.active, 'fc-swipe-correct': swipe.action === 'got_it', 'fc-swipe-incorrect': swipe.action === 'wrong', 'fc-swipe-skip': swipe.action === 'skip' }" :style="swipeStyle()" @pointerdown="beginSwipe($event)" @pointermove="updateSwipe($event)" @pointerup="endSwipe($event)" @pointercancel="resetSwipe()" @click="toggleReveal()" @keydown.enter.prevent="toggleReveal()" @keydown.space.prevent="toggleReveal()">
+      <div class="fc-swipe-overlay pointer-events-none" x-cloak x-show="swipe.active && swipeLabel()" x-transition.opacity>
+        <span x-text="swipeLabel()"></span>
+      </div>
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
         <div class="flex items-center gap-2">

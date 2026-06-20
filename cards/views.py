@@ -494,6 +494,7 @@ def review_context(session, initial_revealed=False):
     deck = session_deck(session)
     card = current_review_card(session)
     progress_current, progress_total = review_progress(session)
+    user_settings = get_settings(deck.owner)
     return {
         "deck": deck,
         "card": card,
@@ -506,6 +507,7 @@ def review_context(session, initial_revealed=False):
         "is_hidden_mode": session.get("mode") == REVIEW_HIDDEN_MODE,
         "initial_revealed": initial_revealed,
         "show_tags_default": deck.show_tags_in_review,
+        "review_swipe_enabled": user_settings.review_swipe_enabled,
     }
 
 
