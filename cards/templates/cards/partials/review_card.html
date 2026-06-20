@@ -28,7 +28,7 @@
       justSwiped: false,
       swipeReturning: false,
       swipeCommitting: false,
-      swipe: { tracking: false, active: false, pointerId: null, startX: 0, startY: 0, action: '', contentScrollable: false, contentAtTop: true, raf: 0, pendingX: 0, pendingY: 0, pendingAction: '' },
+      swipe: { tracking: false, active: false, axis: '', pointerId: null, startX: 0, startY: 0, action: '', startedInContent: false, contentScrollable: false, contentAtTop: true, raf: 0, pendingX: 0, pendingY: 0, pendingAction: '' },
       refitMath() {
         this.$nextTick(() => window.requestAnimationFrame(() => {
           window.flashcramFitMath?.(this.$root);
@@ -50,7 +50,7 @@
         return Boolean(target.closest('button, a, input, textarea, select, label, form, math-field, [data-no-swipe], .fc-review-tags, .fc-bottom-actions'));
       },
       freshSwipeState() {
-        return { tracking: false, active: false, pointerId: null, startX: 0, startY: 0, action: '', contentScrollable: false, contentAtTop: true, raf: 0, pendingX: 0, pendingY: 0, pendingAction: '' };
+        return { tracking: false, active: false, axis: '', pointerId: null, startX: 0, startY: 0, action: '', startedInContent: false, contentScrollable: false, contentAtTop: true, raf: 0, pendingX: 0, pendingY: 0, pendingAction: '' };
       },
       setSwipeVisual(x, y, action) {
         this.swipe.pendingX = x;
@@ -84,17 +84,19 @@
       },
       beginSwipe(event) {
         if (!this.revealed || !this.reviewSwipeEnabled || this.isHiddenMode || !this.mobileSwipeAllowed() || this.interactiveSwipeTarget(event.target) || (event.button !== undefined && event.button !== 0)) return;
-        const content = this.$root.querySelector('.fc-review-content');
-        const canScroll = Boolean(content && content.scrollHeight > content.clientHeight + 2);
+        const content = event.target.closest('.fc-review-content');
+        const canScroll = Boolean(content && content.scrollHeight > content.clientHeight + 24);
         this.swipeReturning = false;
         this.swipeCommitting = false;
         this.swipe = {
           tracking: true,
           active: false,
+          axis: '',
           pointerId: event.pointerId,
           startX: event.clientX,
           startY: event.clientY,
           action: '',
+          startedInContent: Boolean(content),
           contentScrollable: canScroll,
           contentAtTop: !content || content.scrollTop <= 1,
           raf: 0,
@@ -112,18 +114,21 @@
         const absX = Math.abs(dx);
         const absY = Math.abs(dy);
         if (!this.swipe.active) {
-          if (absX < 8 && absY < 8) return;
-          const horizontalIntent = absX > 24 && absX > absY * 1.25;
-          const downIntent = dy > 28 && dy > absX * 1.35;
+          if (absX < 6 && absY < 6) return;
+          const horizontalIntent = absX > 12 && absX > absY * 1.08;
+          const downIntent = dy > 24 && dy > absX * 1.35;
+          const verticalScrollIntent = absY > 14 && absY > absX * 1.08;
           if (horizontalIntent) {
             this.swipe.active = true;
+            this.swipe.axis = 'horizontal';
           } else if (downIntent) {
-            if (this.swipe.contentScrollable && !this.swipe.contentAtTop) {
+            if (this.swipe.startedInContent && this.swipe.contentScrollable && !this.swipe.contentAtTop) {
               this.resetSwipe();
               return;
             }
             this.swipe.active = true;
-          } else if (absY > absX && this.swipe.contentScrollable) {
+            this.swipe.axis = 'down';
+          } else if (this.swipe.startedInContent && this.swipe.contentScrollable && verticalScrollIntent) {
             this.resetSwipe();
             return;
           } else {
@@ -132,14 +137,14 @@
         }
         event.preventDefault();
         const width = this.$refs.reviewCardStage?.clientWidth || 320;
-        const horizontalThreshold = Math.min(140, Math.max(90, width * 0.28));
-        const downThreshold = 110;
+        const horizontalThreshold = Math.min(92, Math.max(54, width * 0.18));
+        const downThreshold = 80;
         const visualX = Math.max(Math.min(dx, width * 0.34), width * -0.34);
         const visualY = Math.max(Math.min(dy, 150), -60);
         let action = '';
-        if (absX >= horizontalThreshold && absX > absY * 1.2) {
+        if (this.swipe.axis === 'horizontal' && absX >= horizontalThreshold) {
           action = dx > 0 ? 'got_it' : 'wrong';
-        } else if (dy >= downThreshold && dy > absX * 1.35 && (!this.swipe.contentScrollable || this.swipe.contentAtTop)) {
+        } else if (this.swipe.axis === 'down' && dy >= downThreshold && dy > absX * 1.35 && (!this.swipe.contentScrollable || this.swipe.contentAtTop)) {
           action = 'skip';
         }
         this.setSwipeVisual(visualX, visualY, action);

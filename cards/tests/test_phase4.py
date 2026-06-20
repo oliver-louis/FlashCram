@@ -151,6 +151,7 @@ class RenderingTests(TestCase):
 
     def test_review_swipe_surface_does_not_transform_layout_card(self):
         css = Path("static_src/input.css").read_text()
+        review_template = Path("cards/templates/cards/partials/review_card.html").read_text()
 
         card_rule = css.split(".fc-review-card {", 1)[1].split("\n  }", 1)[0]
         self.assertNotIn("translate3d", card_rule)
@@ -165,6 +166,17 @@ class RenderingTests(TestCase):
         self.assertIn(".fc-shell:has(#review-panel)", css)
         self.assertIn("height: calc(100dvh - 5.5rem)", css)
         self.assertIn("overscroll-behavior: contain", css)
+        self.assertIn("touch-action: pan-y", css)
+        self.assertIn("user-select: none", css)
+        self.assertIn("scrollHeight > content.clientHeight + 24", review_template)
+        self.assertIn("this.swipe.axis = 'horizontal'", review_template)
+        self.assertIn("this.swipe.axis = 'down'", review_template)
+        self.assertIn("absX > 12 && absX > absY * 1.08", review_template)
+        self.assertIn("Math.min(92, Math.max(54, width * 0.18))", review_template)
+        self.assertIn("const downThreshold = 80", review_template)
+        self.assertNotIn(".fc-rendered-content", review_template.split("interactiveSwipeTarget(target)", 1)[1].split("freshSwipeState()", 1)[0])
+        self.assertNotIn("pre,", review_template.split("interactiveSwipeTarget(target)", 1)[1].split("freshSwipeState()", 1)[0])
+        self.assertNotIn(".katex", review_template.split("interactiveSwipeTarget(target)", 1)[1].split("freshSwipeState()", 1)[0])
 
 
 class PreviewViewTests(AuthenticatedTestCase):
