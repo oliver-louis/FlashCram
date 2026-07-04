@@ -8,6 +8,8 @@ else
   python manage.py migrate --noinput
 fi
 python manage.py ensure_superuser_from_env
+# Staticfiles are generated output; clear stale manifests before WhiteNoise collectstatic.
+rm -rf /app/staticfiles/*
 python manage.py collectstatic --noinput
 
 exec "$@"
