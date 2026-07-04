@@ -217,6 +217,7 @@
   .fc-review-content {
     scrollbar-width: thin;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .fc-review-face {
@@ -399,10 +400,19 @@
     backdrop-filter: blur(18px);
   }
 
+  html:has(#review-panel),
   body:has(#review-panel) {
     height: 100dvh;
+    max-height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
+  }
+
+  body:has(#review-panel) {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    min-height: 100dvh;
   }
 
   .fc-shell:has(#review-panel) {
