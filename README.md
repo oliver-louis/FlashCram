@@ -6,6 +6,7 @@ It is built for fast card creation, manual review, and comfortable phone use on 
 ## Features
 
 - Deck and card CRUD with server-rendered Django templates.
+- Modal card editor with Markdown shortcuts/toolbars, review-style draft preview, and Save and add another.
 - Optional deck categories, pin/favourite indicators, and reversible deck archiving.
 - Mobile-first review sessions with all, random, weak, unseen, hidden, and tag-based modes.
 - Correct/incorrect counters, weak-card detection, undo, skip, show-less, hide, and marked-card workflows.
@@ -15,6 +16,20 @@ It is built for fast card creation, manual review, and comfortable phone use on 
 - Plaintext and markdown cards, with fenced code blocks, tables, KaTeX-ready LaTeX, and Pygments highlighting.
 - One optional image per card, stored in the database and included in full backups.
 - Server-persisted dark/light theme and install-only PWA metadata.
+
+## Writing Cards By Hand
+
+From a deck, select **Add card** or a card's **Edit** action. The editor opens in a modal; direct editor links also work as full pages.
+
+- Choose **Plain text** for literal text, or **Markdown** for formatting. Switching modes preserves the text.
+- In Markdown, use the toolbar or **Ctrl/Cmd+B** and **Ctrl/Cmd+I**. Select text to format it, or toggle formatting on before typing and off when finished. **Ctrl/Cmd+Z** undoes typing and editor commands.
+- List buttons format selected lines. Typing `- ` or `1. ` after prose adds the blank line required by the renderer; Enter continues the list, and Enter on an empty item ends it. Pasted Markdown is preserved, so include a blank line before pasted lists.
+- **Insert equation** keeps the MathLive keyboard and inserts into the last focused face. Inline math uses `\(...\)` and display math uses `\[...\]`; bare dollar signs remain literal.
+- **Preview card** shows both faces and the current image as a flippable card without saving or changing review counters. **Back to editing** restores the draft.
+- **Save and add another** retains format and tags, clears the content/image, resets status to Normal, and focuses Front. Status lives under **More options**.
+- New image attachments show a thumbnail and can be removed before saving. Failed validation and preview requests preserve the draft and selected file. Unsaved edits prompt before closing; drafts are not stored across browser sessions.
+
+Authoring JSON imports, New Deck JSON uploads, and full backup imports/exports remain separate workflows with unchanged schemas and rendering.
 
 ## Stack
 
@@ -255,6 +270,7 @@ Compiled CSS and vendored HTMX/Alpine/KaTeX/MathLive assets are committed under 
 .venv/bin/python manage.py test
 .venv/bin/python manage.py check
 .venv/bin/python manage.py makemigrations --check --dry-run
+node --test tests/card-editor.test.cjs
 npm run build:assets
 ```
 

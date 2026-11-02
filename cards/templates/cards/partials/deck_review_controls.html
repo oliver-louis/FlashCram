@@ -1,0 +1,68 @@
+<section id="deck-review-controls" {% if refresh %}hx-swap-oob="outerHTML"{% endif %} class="fc-card max-w-full overflow-hidden rounded-3xl p-4 sm:p-5" x-data="{ reviewOpen: false }">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">Review</p>
+          <h2 class="mt-1 text-2xl font-black">Ready when you are</h2>
+          <p class="mt-1 text-sm fc-muted">Start a review session, then choose the exact mode.</p>
+        </div>
+        <button class="btn btn-primary btn-lg fc-tap rounded-2xl sm:min-w-64" type="button" @click="reviewOpen = !reviewOpen" :aria-expanded="reviewOpen.toString()">
+          Review Cards
+        </button>
+      </div>
+
+      <div class="mt-5 rounded-3xl border border-base-content/10 bg-base-200/70 p-3 sm:p-4" x-cloak x-show="reviewOpen" x-transition>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <a class="btn btn-outline btn-lg fc-tap rounded-2xl" href="{% url 'cards:review_start' deck.id %}">Review all</a>
+          <a class="btn btn-secondary btn-lg fc-tap rounded-2xl" href="{% url 'cards:review_start_mode' deck.id 'random' %}">Random</a>
+          <a class="btn btn-outline btn-lg fc-tap rounded-2xl" href="{% url 'cards:review_start_mode' deck.id 'weak' %}">Review weak</a>
+          <a class="btn btn-outline btn-lg fc-tap rounded-2xl" href="{% url 'cards:review_start_mode' deck.id 'unseen' %}">Review unseen</a>
+          <a class="btn btn-outline btn-lg fc-tap rounded-2xl" href="{% url 'cards:review_start_mode' deck.id 'hidden' %}">Hidden</a>
+        </div>
+        {% if deck.tags_used %}
+          {{ tag_review_cards|json_script:"tag-review-cards" }}
+          <form
+            method="post"
+            action="{% url 'cards:review_start_tag' deck.id %}"
+            class="mt-4 rounded-2xl border border-base-content/10 bg-base-100/60 p-3"
+            x-data="{
+              mode: 'include',
+              selected: [],
+              cards: JSON.parse(document.getElementById('tag-review-cards').textContent),
+              count() {
+                const selectedTags = new Set(this.selected);
+                if (this.mode === 'exclude') {
+                  return this.cards.filter((card) => !(card.tags || []).some((tag) => selectedTags.has(tag))).length;
+                }
+                if (selectedTags.size === 0) return 0;
+                return this.cards.filter((card) => (card.tags || []).some((tag) => selectedTags.has(tag))).length;
+              }
+            }"
+          >
+            {% csrf_token %}
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 class="text-lg font-black">Review by tag</h3>
+                <p class="text-sm fc-muted" x-text="mode === 'exclude' ? 'Avoid selected tags; untagged cards are included.' : 'Pick one or more tags from this deck.'"></p>
+              </div>
+              <div class="flex flex-col gap-2 sm:items-end">
+                <div class="join">
+                  <label class="btn btn-sm join-item has-[:checked]:btn-primary">
+                    <input class="hidden" type="radio" name="tag_mode" value="include" x-model="mode">
+                    Include
+                  </label>
+                  <label class="btn btn-sm join-item has-[:checked]:btn-primary">
+                    <input class="hidden" type="radio" name="tag_mode" value="exclude" x-model="mode">
+                    Exclude
+                  </label>
+                </div>
+                <span class="badge badge-neutral rounded-xl" x-text="count() + (count() === 1 ? ' card' : ' cards')"></span>
+              </div>
+            </div>
+            <div class="mt-3 min-w-0 max-w-full">
+              {% include "cards/partials/tag_list_collapsible.html" with tags=deck.tags_used selectable=True bind_selected=True %}
+            </div>
+            <button class="btn btn-primary fc-tap mt-4 w-full rounded-2xl sm:w-auto" type="submit" :disabled="count() === 0">Start tag review</button>
+          </form>
+        {% endif %}
+      </div>
+    </section>

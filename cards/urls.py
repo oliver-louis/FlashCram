@@ -17,6 +17,7 @@ urlpatterns = [
     path("decks/<uuid:deck_id>/pin/", views.deck_toggle_pin, name="deck_toggle_pin"),
     path("decks/<uuid:deck_id>/favorite/", views.deck_toggle_favorite, name="deck_toggle_favorite"),
     path("decks/<uuid:deck_id>/cards/new/", views.card_create, name="card_create"),
+    path("decks/<uuid:deck_id>/cards/preview-draft/", views.card_draft_preview, name="card_draft_preview"),
     path("decks/<uuid:deck_id>/cards/preview/", views.card_preview, name="card_preview"),
     path(
         "decks/<uuid:deck_id>/cards/<uuid:card_id>/edit/",

@@ -1,0 +1,33 @@
+    <div
+      x-data="{ revealed: false, toggleReveal() { this.revealed = !this.revealed; this.$nextTick(() => window.flashcramFitMath?.(this.$root)); } }"
+      role="button"
+      tabindex="0"
+      class="fc-preview-surface fc-review-card flex min-h-0 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]"
+      @click="if (!$event.target.closest('a, button, [data-image-zoom]')) toggleReveal()"
+      @keydown.enter="if ($event.target === $event.currentTarget) { $event.preventDefault(); toggleReveal(); }"
+      @keydown.space="if ($event.target === $event.currentTarget) { $event.preventDefault(); toggleReveal(); }"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary" x-text="revealed ? 'Back' : 'Front'"></p>
+        <div class="flex items-center gap-2">
+          {% if card.is_marked %}
+            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-secondary text-sm font-black text-secondary-content shadow-sm shadow-secondary/30" aria-label="Marked card" title="Marked card">
+              <span aria-hidden="true">★</span>
+            </span>
+          {% endif %}
+          <span class="badge badge-outline min-w-14 rounded-xl text-center" x-text="revealed ? 'Back' : 'Flip'" :aria-label="revealed ? 'Tap card to flip back to the front' : 'Tap card to reveal the back'" :title="revealed ? 'Tap card to flip back' : 'Tap card to reveal'">Flip</span>
+        </div>
+      </div>
+      <div class="mt-8 flex flex-1 flex-col justify-center overflow-y-auto text-2xl leading-tight sm:text-3xl" x-show="!revealed">
+        {% if draft_preview and not card.front %}<p class="text-base fc-muted">Front is empty</p>{% endif %}
+        {% with rendered_face=rendered_front %}
+          {% include "cards/partials/rendered_face.html" %}
+        {% endwith %}
+      </div>
+      <div class="mt-8 flex flex-1 flex-col justify-center overflow-y-auto text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
+        {% if draft_preview and not card.back %}<p class="text-base fc-muted">Back is empty</p>{% endif %}
+        {% with rendered_face=rendered_back %}
+          {% include "cards/partials/rendered_face.html" %}
+        {% endwith %}
+      </div>
+    </div>

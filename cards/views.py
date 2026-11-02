@@ -6,7 +6,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import BulkImportForm, CardForm, DeckCreateForm, DeckForm, JsonImportForm, SettingsForm
+from .forms import BulkImportForm, CardDraftPreviewForm, CardForm, DeckCreateForm, DeckForm, JsonImportForm, SettingsForm
 from .models import Card, Deck
 from .rendering import RenderedFace, render_card_face, render_content
 from .services import (
@@ -81,20 +81,23 @@ def archived_decks(request):
     )
 
 
-def deck_detail(request, deck_id):
-    deck = get_deck(deck_id, request.user)
-    tag_review_cards = [
+def deck_review_cards(deck):
+    return [
         {"id": str(card.id), "tags": card.tags or []}
         for card in cards_for_deck(deck)
         if card.status != Card.Status.HIDDEN
     ]
+
+
+def deck_detail(request, deck_id):
+    deck = get_deck(deck_id, request.user)
     return render(
         request,
         "cards/deck_detail.html",
         {
             "deck": deck,
             "cards": cards_for_deck(deck),
-            "tag_review_cards": tag_review_cards,
+            "tag_review_cards": deck_review_cards(deck),
             "query": "",
             "selected_tag": "",
             "selected_status": "",
@@ -118,7 +121,7 @@ def card_list(request, deck_id):
     )
     return render(
         request,
-        "cards/partials/card_list.html",
+        "cards/partials/card_list_refresh.html" if request.GET.get("refresh_meta") == "1" else "cards/partials/card_list.html",
         {
             "deck": deck,
             "cards": cards,
@@ -126,6 +129,7 @@ def card_list(request, deck_id):
             "selected_tag": selected_tag,
             "selected_status": selected_status,
             "selected_marked": selected_marked,
+            "tag_review_cards": deck_review_cards(deck) if request.GET.get("refresh_meta") == "1" else [],
             "is_filtered": bool(
                 query.strip()
                 or selected_tag.strip()
@@ -240,15 +244,52 @@ def deck_toggle_favorite(request, deck_id):
     return redirect("cards:home")
 
 
+def card_editor_context(deck, form, saved=False):
+    return {"deck": deck, "form": form, "title": "Add card", "saved": saved,
+            "action_url": reverse("cards:card_create", kwargs={"deck_id": deck.id})}
+
+
+def card_editor_saved(request, card):
+    response = render(request, "cards/partials/card_editor_saved.html", {"card": card})
+    response["X-Card-Saved"] = "true"
+    response["X-Card-Continue"] = "true" if request.POST.get("intent") == "save_add_another" else "false"
+    return response
+
+
+@require_POST
+def card_draft_preview(request, deck_id):
+    deck = get_deck(deck_id, request.user)
+    form = CardDraftPreviewForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return render(request, "cards/partials/card_editor_errors.html", {"form": form}, status=422)
+    data = form.cleaned_data
+    current = get_card_for_deck(deck, data["card_id"], request.user) if data["card_id"] else None
+    draft = Card(deck=deck, front=data["front"], back=data["back"],
+                 content_format=data["content_format"], image_face=data["image_face"])
+    if current and not data["remove_image"]:
+        draft.image, draft.image_mime = current.image, current.image_mime
+    if data["image_upload"]:
+        draft.image, draft.image_mime = data["image_upload"]
+    return render(request, "cards/partials/card_preview_surface.html", {
+        "card": draft, "draft_preview": True,
+        "rendered_front": render_card_face(draft, Card.ImageFace.FRONT),
+        "rendered_back": render_card_face(draft, Card.ImageFace.BACK),
+    })
+
+
 def card_create(request, deck_id):
     deck = get_deck(deck_id, request.user)
-    preview_url = reverse("cards:card_preview", kwargs={"deck_id": deck.id})
     if request.method == "POST":
-        form = CardForm(request.POST, request.FILES, preview_url=preview_url, user=request.user)
+        form = CardForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             card = form.save(commit=False)
             card.deck = deck
             card.save()
+            if request.headers.get("X-Card-Editor"):
+                return card_editor_saved(request, card)
+            if request.POST.get("intent") == "save_add_another":
+                form = CardForm(initial={"content_format": card.content_format, "tags_text": ", ".join(card.tags)}, user=request.user)
+                return render(request, "cards/card_form_page.html", card_editor_context(deck, form, saved=True))
             if request.htmx:
                 return render(
                     request,
@@ -258,8 +299,10 @@ def card_create(request, deck_id):
                 )
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = CardForm(preview_url=preview_url, user=request.user)
+        form = CardForm(user=request.user)
 
+    if request.method == "POST" and request.headers.get("X-Card-Editor"):
+        return render(request, "cards/partials/card_editor_errors.html", {"form": form}, status=422)
     template = "cards/partials/card_form.html" if request.htmx else "cards/card_form_page.html"
     return render(
         request,
@@ -268,7 +311,8 @@ def card_create(request, deck_id):
             "form": form,
             "deck": deck,
             "title": "Add card",
-            "submit_label": "Create card",
+            "submit_label": "Save",
+            "editor_modal": bool(request.htmx),
             "action_url": reverse("cards:card_create", kwargs={"deck_id": deck.id}),
         },
         status=422 if request.method == "POST" else 200,
@@ -278,24 +322,26 @@ def card_create(request, deck_id):
 def card_edit(request, deck_id, card_id):
     deck = get_deck(deck_id, request.user)
     card = get_card_for_deck(deck, card_id, request.user)
-    preview_url = reverse("cards:card_preview", kwargs={"deck_id": deck.id})
     if request.method == "POST":
         form = CardForm(
             request.POST,
             request.FILES,
             instance=card,
-            preview_url=preview_url,
             card_id=str(card.id),
             user=request.user,
         )
         if form.is_valid():
             card = form.save()
+            if request.headers.get("X-Card-Editor"):
+                return card_editor_saved(request, card)
             if request.htmx:
                 return render(request, "cards/partials/card_row.html", {"deck": deck, "card": card})
             return redirect("cards:deck_detail", deck_id=deck.id)
     else:
-        form = CardForm(instance=card, preview_url=preview_url, card_id=str(card.id), user=request.user)
+        form = CardForm(instance=card, user=request.user)
 
+    if request.method == "POST" and request.headers.get("X-Card-Editor"):
+        return render(request, "cards/partials/card_editor_errors.html", {"form": form}, status=422)
     template = "cards/partials/card_form.html" if request.htmx else "cards/card_form_page.html"
     return render(
         request,
@@ -305,7 +351,8 @@ def card_edit(request, deck_id, card_id):
             "deck": deck,
             "card": card,
             "title": "Edit card",
-            "submit_label": "Save card",
+            "submit_label": "Save",
+            "editor_modal": bool(request.htmx),
             "action_url": reverse(
                 "cards:card_edit", kwargs={"deck_id": deck.id, "card_id": card.id}
             ),

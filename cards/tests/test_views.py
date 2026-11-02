@@ -1,5 +1,6 @@
 import json
 from django.contrib.staticfiles import finders
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
@@ -1543,7 +1544,7 @@ class UiAssetTests(AuthenticatedTestCase):
     def test_base_template_links_compiled_assets_and_brand_icon(self):
         response = self.client.get(reverse("cards:home"))
 
-        self.assertContains(response, "css/app.css")
-        self.assertContains(response, "vendor/htmx.min.js")
-        self.assertContains(response, "vendor/alpine.min.js")
+        self.assertContains(response, staticfiles_storage.url("css/app.css"))
+        self.assertContains(response, staticfiles_storage.url("vendor/htmx.min.js"))
+        self.assertContains(response, staticfiles_storage.url("vendor/alpine.min.js"))
         self.assertContains(response, "icons/favicon")

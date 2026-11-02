@@ -1,0 +1,11 @@
+<div class="min-w-0" @focusin="focusedFace = '{{ face }}'">
+  <label class="label-text mb-2 block font-semibold" for="{{ field.id_for_label }}">{{ label }}</label>
+  <div class="fc-editor-toolbar" role="group" aria-label="{{ label }} formatting" x-show="format === 'markdown'" x-cloak @mousedown.prevent>
+    <button type="button" class="btn btn-sm btn-ghost font-bold" title="Bold (Ctrl/Cmd+B)" aria-label="{{ label }} bold" :aria-pressed="active('{{ face }}', '**')" @click="formatText('{{ face }}', '**')">B</button>
+    <button type="button" class="btn btn-sm btn-ghost italic" title="Italic (Ctrl/Cmd+I)" aria-label="{{ label }} italic" :aria-pressed="active('{{ face }}', '_')" @click="formatText('{{ face }}', '_')">I</button>
+    <button type="button" class="btn btn-sm btn-ghost font-mono" title="Inline code" aria-label="{{ label }} inline code" :aria-pressed="active('{{ face }}', '`')" @click="formatText('{{ face }}', '`')">&lt;/&gt;</button>
+    <button type="button" class="btn btn-sm btn-ghost" aria-label="{{ label }} bulleted list" :aria-pressed="listActive('{{ face }}', false)" @click="formatList('{{ face }}', false)">• List</button>
+    <button type="button" class="btn btn-sm btn-ghost" aria-label="{{ label }} numbered list" :aria-pressed="listActive('{{ face }}', true)" @click="formatList('{{ face }}', true)">1. List</button>
+  </div>
+  <div :class="format === 'markdown' ? 'fc-editor-markdown' : ''" @select="selectionChanged('{{ face }}')" @keyup="selectionChanged('{{ face }}')" @click="selectionChanged('{{ face }}')">{{ field }}</div>
+</div>

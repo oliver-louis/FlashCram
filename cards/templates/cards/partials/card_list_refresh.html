@@ -1,0 +1,10 @@
+{% include "cards/partials/card_list.html" %}
+<span id="deck-card-count" class="badge badge-neutral badge-lg rounded-xl" hx-swap-oob="outerHTML">{{ deck.card_count }}</span>
+{% include "cards/partials/deck_header.html" with refresh=True %}
+<select id="card-tag-filter" hx-swap-oob="outerHTML" class="select select-bordered h-14 w-full rounded-2xl sm:w-44" name="tag" aria-label="Filter by tag">
+  <option value="">All tags</option>
+  {% if selected_tag and selected_tag not in deck.tags_used %}<option value="{{ selected_tag }}" selected>{{ selected_tag }}</option>{% endif %}
+  {% for tag in deck.tags_used %}<option value="{{ tag }}" {% if selected_tag == tag %}selected{% endif %}>{{ tag }}</option>{% endfor %}
+</select>
+
+{% include "cards/partials/deck_review_controls.html" with refresh=True %}

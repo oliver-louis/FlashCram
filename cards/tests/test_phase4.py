@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.test import TestCase
 from django.urls import reverse
 from PIL import Image
@@ -246,18 +247,15 @@ class PreviewViewTests(AuthenticatedTestCase):
         self.assertContains(plaintext, "\\(x_i\\)")
         self.assertNotContains(plaintext, 'data-render-math="true"')
 
-    def test_card_form_uses_debounced_preview_and_correct_equation_delimiters(self):
+    def test_card_form_uses_explicit_draft_preview_and_equation_helper(self):
         response = self.client.get(reverse("cards:card_create", kwargs={"deck_id": self.deck.id}))
-        html = response.content.decode()
-
-        self.assertIn("hx-trigger=\"input changed delay:500ms\"", html)
-        self.assertIn("hx-target=\"#front-preview\"", html)
-        self.assertIn("hx-target=\"#back-preview\"", html)
-        self.assertIn("? '\\\\[' + latex + '\\\\]'", html)
-        self.assertIn(": '\\\\(' + latex + '\\\\)'", html)
-        self.assertNotIn("'\\\\\\\\[' + latex", html)
-        self.assertNotIn("'\\\\\\\\(' + latex", html)
-        self.assertNotIn(">Preview</button>", html)
+        self.assertContains(response, "Preview card")
+        self.assertContains(response, "Insert equation")
+        self.assertContains(response, staticfiles_storage.url("js/card-editor.js"))
+        self.assertContains(response, reverse("cards:card_draft_preview", kwargs={"deck_id": self.deck.id}))
+        self.assertNotContains(response, 'input changed delay:500ms')
+        self.assertNotContains(response, 'id="front-preview"')
+        self.assertNotContains(response, 'id="back-preview"')
 
     def test_base_template_scopes_katex_to_markdown_fragments(self):
         response = self.client.get(reverse("cards:home"))

@@ -271,6 +271,20 @@ class CardForm(forms.ModelForm):
         return card
 
 
+class CardDraftPreviewForm(forms.Form):
+    """Validate a disposable draft without requiring either face or saving a model."""
+
+    card_id = forms.UUIDField(required=False)
+    front = forms.CharField(required=False, strip=False)
+    back = forms.CharField(required=False, strip=False)
+    content_format = forms.ChoiceField(choices=Card.ContentFormat.choices)
+    image_face = forms.ChoiceField(choices=Card.ImageFace.choices)
+    image_upload = forms.FileField(required=False)
+    remove_image = forms.BooleanField(required=False)
+
+    clean_image_upload = CardForm.clean_image_upload
+
+
 class SettingsForm(forms.ModelForm):
     class Meta:
         model = Settings
