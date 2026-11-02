@@ -6,12 +6,7 @@
         {% if deck.category %}
           <span class="badge badge-outline rounded-xl">{{ deck.category.name }}</span>
         {% endif %}
-        {% if deck.is_pinned %}
-          <span class="badge badge-primary rounded-xl">Pinned</span>
-        {% endif %}
-        {% if deck.is_favorite %}
-          <span class="badge badge-secondary rounded-xl">Favourite</span>
-        {% endif %}
+        {% include "cards/partials/deck_indicators.html" %}
         {% if deck.is_archived %}
           <span class="badge badge-warning rounded-xl">Archived</span>
         {% endif %}

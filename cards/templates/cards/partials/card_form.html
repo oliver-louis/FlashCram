@@ -1,13 +1,14 @@
 {% load card_rendering %}
 <div id="card-editor" class="{% if editor_modal %}fc-editor-overlay{% endif %}"
      data-modal="{{ editor_modal|yesno:'true,false' }}" data-deck-url="{% url 'cards:deck_detail' deck.id %}"
-     x-data="cardEditor" @keydown.capture="onKeydown($event)" @paste="onPaste($event)"
+     x-data="cardEditor" :data-keyboard-open="keyboardOpen" @keydown.capture="onKeydown($event)" @paste="onPaste($event)"
      @click.self="close()" @htmx:before-request="beforeRequest($event)"
      @htmx:before-swap="beforeSwap($event)" @htmx:after-request="afterRequest($event)">
   <section class="fc-card fc-editor-shell rounded-3xl" :role="modal ? 'dialog' : 'region'" :aria-modal="modal ? 'true' : null" aria-labelledby="card-editor-title">
     <header class="fc-editor-header">
-      <div class="min-w-0"><p class="truncate text-sm fc-muted">{{ deck.name }}</p><h2 id="card-editor-title" class="text-2xl font-black">{{ title }}</h2></div>
-      <button type="button" class="btn btn-ghost rounded-2xl" @click="close()" :disabled="busy" aria-label="Close editor">Close</button>
+      <div class="min-w-0"><p class="truncate text-sm fc-muted">{{ deck.name }}</p><h2 id="card-editor-title" x-ref="heading" tabindex="-1" class="text-2xl font-black">{{ title }}</h2></div>
+      <button type="button" x-show="!preview" class="btn btn-ghost btn-square rounded-2xl" @click="close()" :disabled="busy" aria-label="Close editor"><svg aria-hidden="true" class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      <button type="button" x-show="preview" x-cloak class="btn btn-ghost rounded-2xl" x-ref="backToEditing" @click="backToEditing()" :disabled="busy">‹ Back to editing</button>
     </header>
     <form x-ref="form" novalidate method="post" action="{{ action_url }}" enctype="multipart/form-data"
           hx-post="{{ action_url }}" hx-encoding="multipart/form-data" hx-target="#card-editor-errors" hx-swap="innerHTML"
@@ -63,7 +64,6 @@
           <details x-ref="options" {% if form.status.errors %}open{% endif %}><summary class="cursor-pointer font-semibold">More options</summary><label class="form-control mt-3" for="{{ form.status.id_for_label }}"><span class="label-text">Status</span>{{ form.status }}</label></details>
         </div>
         <div x-show="preview" x-cloak>
-          <button type="button" class="btn btn-ghost mb-3 rounded-2xl" x-ref="backToEditing" @click="backToEditing()">‹ Back to editing</button>
           <div id="card-editor-preview" aria-label="Draft card preview"></div>
         </div>
       </div>

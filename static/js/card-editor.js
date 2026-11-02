@@ -111,12 +111,22 @@
     if (!prev.trim() || /^\s*(?:[-+*]|\d+\.) /.test(prev)) return state;
     return replace(state, start, start, '\n', state.start + 1);
   }
-  const commands = { inline, inlineRange, list, continueList, spaceTypedList, protectedAt };
+  // Keep a keyboard-free baseline per orientation. Browser chrome alone must not
+  // hide actions; hardware keyboard focus does not reduce the visual viewport.
+  function keyboardState(previous, { width, layoutHeight, height, editable, math }) {
+    const rotated = !previous || Math.abs(width - previous.width) > 80;
+    const baseline = rotated ? layoutHeight : Math.max(previous.baseline, layoutHeight, height);
+    const reduction = baseline - height;
+    const native = reduction > (previous?.native ? 90 : 150) && (editable || (!rotated && previous?.native));
+    return { width, baseline, native: !!native, open: !!(math || native) };
+  }
+  const commands = { keyboardState, inline, inlineRange, list, continueList, spaceTypedList, protectedAt };
   if (typeof module !== 'undefined') module.exports = commands;
   if (!global.document) return;
 
   document.addEventListener('alpine:init', () => {
     Alpine.data('cardEditor', () => ({
+      keyboardOpen: false, viewportState: null, mobile: false,
       modal: false, format: 'plaintext', focusedFace: 'front', equationMode: 'inline', equationLatex: '',
       imageName: '', imageUrl: '', removeExisting: false, preview: false, busy: false, intent: 'save',
       revision: 0, histories: {}, baseline: '', opener: null, objectUrl: null, previewScroll: 0,
@@ -139,18 +149,37 @@
           }
         };
         this.resizeHandler = () => {
-          if (!this.modal) return;
+          this.mobile = window.matchMedia('(max-width: 639px)').matches;
           const viewport = window.visualViewport;
-          let height = viewport?.height || window.innerHeight;
-          const top = viewport?.offsetTop || 0;
-          // Use the panel height, not its animated top edge. MathLive may emit
-          // geometry events before the show transition has completed.
+          const height = viewport?.height || window.innerHeight;
           const keyboard = document.querySelector('.ML__keyboard.is-visible .MLK__plate');
-          if (keyboard) height -= keyboard.getBoundingClientRect().height;
-          this.$root.style.height = Math.max(160, height) + 'px';
-          this.$root.style.top = top + 'px';
-          this.$root.style.setProperty('--fc-editor-height', Math.max(160, height) + 'px');
+          const active = document.activeElement;
+          const editable = this.$root.contains(active) && active?.matches('textarea, input:not([type=radio]):not([type=file]):not([type=hidden]), math-field, [contenteditable=true]');
+          const wasOpen = this.keyboardOpen;
+          this.viewportState = keyboardState(this.viewportState, {
+            width: window.innerWidth, layoutHeight: Math.max(window.innerHeight, document.documentElement.clientHeight),
+            height, editable, math: !!keyboard,
+          });
+          this.keyboardOpen = this.mobile && this.viewportState.open;
+          const available = Math.max(160, height - (keyboard?.getBoundingClientRect().height || 0));
+          if (this.modal) {
+            this.$root.style.height = (this.mobile ? this.viewportState.baseline : available) + 'px';
+            this.$root.style.top = (viewport?.offsetTop || 0) + 'px';
+          }
+          this.$root.style.setProperty('--fc-editor-height', available + 'px');
+          // Let the browser handle caret scrolling within the textarea. Only
+          // move the body if the focused field is entirely outside its bounds.
+          if (this.keyboardOpen && !wasOpen) this.$nextTick(() => {
+            if (!editable) return;
+            const field = active.getBoundingClientRect(), body = this.$refs.body.getBoundingClientRect();
+            if (field.top < body.top || field.top >= body.bottom) this.$refs.body.scrollTop += field.top - body.top - 8;
+          });
         };
+        this.viewportFocusHandler = () => window.requestAnimationFrame(this.resizeHandler);
+        this.$root.addEventListener('focusin', this.viewportFocusHandler);
+        this.$root.addEventListener('focusout', this.viewportFocusHandler);
+        window.addEventListener('resize', this.resizeHandler);
+        this.resizeHandler();
         this.keyboardToggleHandler = () => window.requestAnimationFrame(() => {
           if (!this.$root.isConnected) return;
           this.resizeHandler();
@@ -175,10 +204,13 @@
           this.oldOverflow = document.body.style.overflow;
           document.body.style.overflow = 'hidden';
         }
-        this.$nextTick(() => { this.baseline = this.fingerprint(); this.field('front').focus({ preventScroll: true }); });
+        this.$nextTick(() => { this.baseline = this.fingerprint(); if (!this.mobile) this.field('front').focus({ preventScroll: true }); else this.$refs.heading.focus({ preventScroll: true }); });
       },
       destroy() {
         this.keyboardObserver?.disconnect();
+        window.removeEventListener('resize', this.resizeHandler);
+        this.$root.removeEventListener('focusin', this.viewportFocusHandler);
+        this.$root.removeEventListener('focusout', this.viewportFocusHandler);
         window.visualViewport?.removeEventListener('resize', this.resizeHandler);
         window.visualViewport?.removeEventListener('scroll', this.resizeHandler);
         window.mathVirtualKeyboard?.removeEventListener('geometrychange', this.resizeHandler);

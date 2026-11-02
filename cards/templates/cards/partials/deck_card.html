@@ -4,16 +4,7 @@
       <a class="block min-w-0" href="{% url 'cards:deck_detail' deck.id %}">
         <div class="min-w-0">
           <div class="flex min-w-0 flex-wrap items-center gap-2">
-            {% if deck.is_pinned %}
-              <span class="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-content shadow-sm shadow-primary/30" title="Pinned" aria-label="Pinned deck">
-                <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14.7 3.3a1 1 0 0 1 1.4 0l4.6 4.6a1 1 0 0 1 0 1.4l-1.4 1.4a1 1 0 0 1-1.2.15l-2.2 2.2a4.9 4.9 0 0 1-1.25 4.75l-.7.7a1 1 0 0 1-1.42 0l-3.18-3.18-4.64 4.64a1 1 0 0 1-1.42-1.42l4.64-4.64-3.18-3.18a1 1 0 0 1 0-1.42l.7-.7a4.9 4.9 0 0 1 4.75-1.25l2.2-2.2a1 1 0 0 1 .15-1.2l1.45-1.35Z" />
-                </svg>
-              </span>
-            {% endif %}
-            {% if deck.is_favorite %}
-              <span class="grid h-7 w-7 place-items-center rounded-full bg-secondary text-sm font-black text-secondary-content" title="Favourite" aria-label="Favourite deck">★</span>
-            {% endif %}
+            {% include "cards/partials/deck_indicators.html" %}
             {% if deck.category %}
               <span class="badge badge-outline rounded-xl">{{ deck.category.name }}</span>
             {% endif %}

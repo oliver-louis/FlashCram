@@ -127,3 +127,25 @@ test('equation insertion uses the active face and can be undone', () => {
   component.undo('front');
   assert.equal(field.value, 'Energy: ');
 });
+
+test('native keyboard hides actions only after focused viewport reduction', () => {
+  const base = {width:390, layoutHeight:844, height:844, editable:false, math:false};
+  let s = c.keyboardState(null, base);
+  assert.equal(s.open, false);
+  s = c.keyboardState(s, {...base, height:760, editable:true});
+  assert.equal(s.open, false, 'browser chrome or hardware keyboard focus');
+  s = c.keyboardState(s, {...base, height:480, editable:true});
+  assert.equal(s.open, true);
+  s = c.keyboardState(s, {...base, height:490, editable:false});
+  assert.equal(s.open, true, 'blur during dismissal does not flash the footer');
+  s = c.keyboardState(s, base);
+  assert.equal(s.open, false);
+});
+test('rotation resets baseline and MathLive independently hides actions', () => {
+  let s = c.keyboardState(null, {width:390, layoutHeight:844, height:480, editable:true, math:false});
+  assert.equal(s.open, true);
+  s = c.keyboardState(s, {width:844, layoutHeight:390, height:390, editable:false, math:false});
+  assert.equal(s.open, false);
+  assert.equal(s.baseline, 390);
+  assert.equal(c.keyboardState(s, {width:844, layoutHeight:390, height:390, editable:false, math:true}).open, true);
+});

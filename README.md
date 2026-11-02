@@ -19,7 +19,7 @@ It is built for fast card creation, manual review, and comfortable phone use on 
 
 ## Writing Cards By Hand
 
-From a deck, select **Add card** or a card's **Edit** action. The editor opens in a modal; direct editor links also work as full pages.
+From a deck, select **Add card** or a card's **Edit** action. The editor opens in a modal; direct editor links also work as full pages. On phones, the modal fills the screen and does not open the keyboard automatically. While the native or equation keyboard is open, the action footer hides to leave room for typing; dismiss the keyboard to access Preview and Save. In preview, **Back to editing** appears in the header in place of the X close control.
 
 - Choose **Plain text** for literal text, or **Markdown** for formatting. Switching modes preserves the text.
 - In Markdown, use the toolbar or **Ctrl/Cmd+B** and **Ctrl/Cmd+I**. Select text to format it, or toggle formatting on before typing and off when finished. **Ctrl/Cmd+Z** undoes typing and editor commands.

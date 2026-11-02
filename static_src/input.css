@@ -477,11 +477,16 @@
 .fc-preview-surface > div { min-height: 0; }
 body { --keyboard-zindex: 80; }
 @media (max-width: 639px) {
-  .fc-editor-overlay { padding: .35rem; }
-  .fc-editor-overlay .fc-editor-shell { max-height: calc(var(--fc-editor-height, 100dvh) - .7rem); height: calc(var(--fc-editor-height, 100dvh) - .7rem); border-radius: 1.25rem; }
+  .fc-editor-overlay { padding: 0; place-items: start center; }
+  .fc-editor-overlay .fc-editor-shell { max-height: var(--fc-editor-height, 100dvh); height: var(--fc-editor-height, 100dvh); border-radius: 0; border: 0; }
   .fc-editor-overlay .fc-editor-form { flex: 1; }
   .fc-editor-overlay .fc-editor-body { flex: 1; }
   .fc-editor-header, .fc-editor-body, .fc-editor-footer { padding: .8rem; }
+  .fc-editor-header { flex-shrink: 0; gap: .5rem; padding-top: max(.5rem, env(safe-area-inset-top)); padding-bottom: .5rem; }
+  .fc-editor-header h2 { font-size: 1.25rem; line-height: 1.4; }
+  .fc-editor-header p { font-size: .75rem; }
+  #card-editor[data-keyboard-open="true"] .fc-editor-footer { display: none; }
+  .fc-editor-body { scroll-padding: .5rem; padding-left: max(.8rem, env(safe-area-inset-left)); padding-right: max(.8rem, env(safe-area-inset-right)); }
   .fc-editor-footer { padding-bottom: max(.8rem, env(safe-area-inset-bottom)); }
   .fc-editor-footer .btn { flex: 1 1 auto; min-height: 2.75rem; }
   .fc-editor-footer-spacer { display: none; }

@@ -163,3 +163,23 @@ class CardEditorTests(AuthenticatedTestCase):
         self.assertContains(response, 'id="deck-card-count"')
         self.assertContains(response, 'value="newtag" selected')
         self.assertEqual(response.context["deck"].card_count, 2)
+
+    def test_preview_return_control_is_in_header_and_close_is_icon(self):
+        response = self.client.get(self.create_url, **EDITOR)
+        html = response.content.decode()
+        header = html.split('<header class="fc-editor-header">')[1].split('</header>')[0]
+        self.assertIn('aria-label="Close editor"', header)
+        self.assertIn('<svg', header)
+        self.assertIn('x-ref="backToEditing"', header)
+        self.assertEqual(html.count('x-ref="backToEditing"'), 1)
+        self.assertIn(':data-keyboard-open="keyboardOpen"', html)
+
+    def test_deck_header_reuses_pin_and_favourite_icons(self):
+        self.deck.is_pinned = True
+        self.deck.is_favorite = True
+        self.deck.save()
+        response = self.client.get(reverse('cards:deck_detail', args=[self.deck.id]))
+        self.assertContains(response, 'aria-label="Pinned deck"')
+        self.assertContains(response, 'aria-label="Favourite deck"')
+        self.assertNotContains(response, '>Pinned</span>')
+        self.assertNotContains(response, '>Favourite</span>')
