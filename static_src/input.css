@@ -494,3 +494,14 @@ body { --keyboard-zindex: 80; }
   .fc-editor-faces textarea { min-height: 9rem; }
   .fc-preview-surface { height: 55dvh; padding: 1.1rem; }
 }
+
+/* Diagram text is independent of review text scaling. SVGs are image-isolated. */
+.fc-diagram { font-size: 1rem; line-height: 1.5; max-width: 100%; margin: 1rem 0; }
+.fc-diagram-open { display: block; width: 100%; cursor: zoom-in; background: #171e29; border-radius: .75rem; padding: .5rem; }
+.fc-diagram img { display: block; width: 100%; max-height: 45vh; object-fit: contain; margin: 0 auto; }
+.fc-diagram pre { font-size: .8rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fc-diagram details { font-size: .8rem; margin-top: .5rem; }
+.fc-diagram summary { cursor: pointer; }
+.fc-diagram-dialog { width: min(96vw, 90rem); max-width: 96vw; max-height: 95dvh; padding: 1rem; background: #171e29; color: white; border-radius: 1rem; }
+.fc-diagram-dialog::backdrop { background: rgb(0 0 0 / 85%); }
+.fc-diagram-dialog img { max-height: 80dvh; width: 100%; }

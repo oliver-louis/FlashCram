@@ -95,6 +95,17 @@ Tags: shell, grep</code></pre>
   ]
 }</code></pre>
               <p class="fc-muted">Use <code>format</code> as <code>plaintext</code> or <code>markdown</code>. Backup JSON files should be imported from Settings.</p>
+              <p>Optional Mermaid diagrams go inside <code>front</code> or <code>back</code> as fenced <code>mermaid</code> blocks on Markdown cards. No additional JSON fields are needed. Put blank lines around the block; encode line breaks as <code>\n</code> in JSON. Images and raw SVG are not supported by authoring JSON.</p>
+              <p>Supported: flowcharts/trees, sequence, state, class, entity relationship, mindmap, pie, and XY charts. Limits: four diagrams per face, 10,000 characters per diagram, 100 edges. Diagrams are optional; ordinary cards need no changes.</p>
+              <p>Example card object for the cards array:</p>
+              <pre class="overflow-x-auto whitespace-pre-wrap rounded-2xl bg-base-300 p-3"><code>{
+  "front": "Show the two branches of a binary tree.",
+  "back": "Each node has at most two children.\n\n```mermaid\nflowchart TD\n  Root --> Left\n  Root --> Right\n```",
+  "tags": [
+    "trees"
+  ],
+  "format": "markdown"
+}</code></pre>
             </div>
           </details>
 
@@ -168,11 +179,34 @@ LaTeX/math rules:
 - Prefer: P(A \\mid X)
 - Avoid: P(A|X)
 
+Optional Mermaid diagram rules:
+- Do not add diagrams by default. Include one only when explicitly requested, or when it is necessary to communicate an important relationship, structure, sequence, or data pattern substantially more clearly than concise text, a list, or a table.
+- Never add decorative, redundant, speculative, or unnecessarily complex diagrams. Do not aim for a diagram quota; entire decks may contain none.
+- Use format "markdown" and a fenced block labelled mermaid inside front or back. Put a blank line before and after the fence. The outer response is still JSON only, not a fenced JSON block.
+- Supported types: flowchart (or graph), sequenceDiagram, stateDiagram-v2, classDiagram, erDiagram, mindmap, pie, xychart (or xychart-beta).
+- Prefer small diagrams with short, quoted labels where needed, and a concise textual explanation. Use accTitle and accDescr for accessible descriptions.
+- Place diagrams on the back unless the question specifically requires interpreting a diagram on the front. Do not leak an answer through a front-face diagram.
+- No HTML, SVG, frontmatter, configuration/init directives, links, callbacks, external images/resources, icons, or custom styling directives.
+- Maximum four diagrams per face, 10,000 characters per diagram and 100 edges; keep well below these limits.
+- Never invent chart data or assume Mermaid calculates mathematical plots. Use only data supported by the source material.
+- Escape diagram newlines and quotes correctly within the JSON string, just like other Markdown.
+
 Code formatting rules:
 - For inline code, use backticks, e.g. `pthread_create()`, `ls -la`, `$HOME`.
 - For multi-line code, use fenced code blocks with a language label where appropriate, e.g. c, bash, python.
 - Shell variables like `$HOME`, `$PATH`, `$1`, and `$?` should stay literal inside inline code or fenced code blocks.
 - Do not treat shell variables as LaTeX.
+
+Example optional Mermaid card (use only when warranted):
+
+{
+  "front": "Show the two branches of a binary tree.",
+  "back": "Each node has at most two children.\n\n```mermaid\nflowchart TD\n  Root --> Left\n  Root --> Right\n```",
+  "tags": [
+    "trees"
+  ],
+  "format": "markdown"
+}
 
 Example markdown card with math:
 

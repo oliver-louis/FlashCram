@@ -3,7 +3,7 @@
       role="button"
       tabindex="0"
       class="fc-preview-surface fc-review-card flex min-h-0 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]"
-      @click="if (!$event.target.closest('a, button, [data-image-zoom]')) toggleReveal()"
+      @click="if (!$event.target.closest('a, button, [data-image-zoom], [data-no-swipe]')) toggleReveal()"
       @keydown.enter="if ($event.target === $event.currentTarget) { $event.preventDefault(); toggleReveal(); }"
       @keydown.space="if ($event.target === $event.currentTarget) { $event.preventDefault(); toggleReveal(); }"
     >

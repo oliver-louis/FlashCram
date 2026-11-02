@@ -270,7 +270,7 @@ Compiled CSS and vendored HTMX/Alpine/KaTeX/MathLive assets are committed under 
 .venv/bin/python manage.py test
 .venv/bin/python manage.py check
 .venv/bin/python manage.py makemigrations --check --dry-run
-node --test tests/card-editor.test.cjs
+node --test tests/*.test.cjs
 npm run build:assets
 ```
 
@@ -293,3 +293,11 @@ Completed phases include the Django/Docker scaffold, CRUD, review modes, import/
 ## License
 
 No license file has been added yet.
+
+### Optional Mermaid diagrams
+
+Markdown faces can contain fenced `mermaid` blocks, including inside `front`/`back` strings in `flashcram.cards.v1` authoring JSON. Use blank lines around fences and JSON-escaped newlines. Flowcharts/trees, sequence, state, class, entity relationship, mindmap, pie and XY charts are supported. No new JSON fields or database migration are needed; source survives editing, copying and backups.
+
+Diagrams render as static images with an enlarged view in review and previews. Mermaid loads from local assets only when diagrams are present. Plaintext stays literal. Invalid or unsupported diagrams show an error and escaped source; the card remains usable. Limits are four diagrams per face, 10,000 characters per diagram and 100 edges. Configuration directives, HTML, links, callbacks, images and custom styles are prohibited. Authoring JSON still does not import image attachments or raw SVG.
+
+The built-in generation prompt makes diagrams opt-in or reserved for cases where they explain essential structure substantially better than text. Do not expect every deck to contain diagrams.

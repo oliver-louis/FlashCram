@@ -3,10 +3,13 @@ from __future__ import annotations
 import base64
 import html
 import re
+import uuid
 from dataclasses import dataclass
 
 import bleach
 import markdown
+
+from .diagrams import mermaid_fence, summary_fence
 from django.template.defaultfilters import striptags
 from django.utils.safestring import SafeString, mark_safe
 
@@ -18,6 +21,7 @@ MARKDOWN_EXTENSIONS = [
     "pymdownx.highlight",
 ]
 MARKDOWN_EXTENSION_CONFIGS = {
+    "pymdownx.superfences": {"custom_fences": [{"name": "mermaid", "class": "mermaid", "format": mermaid_fence}]},
     "pymdownx.arithmatex": {
         "generic": True,
         "inline_syntax": ["round"],
@@ -124,10 +128,17 @@ def render_content(text: str, content_format: str) -> SafeString:
         return mark_safe(escaped)
 
     source = normalize_display_math_blocks(text or "")
+    diagrams = {}
+
+    def validated_fence(source, language, class_name, options, md, **kwargs):
+        token = 'FCMERMAID' + uuid.uuid4().hex
+        diagrams[token] = mermaid_fence(source, language, class_name, options, md, **kwargs)
+        return f'<p>{token}</p>'
+
     rendered = markdown.markdown(
         source,
         extensions=MARKDOWN_EXTENSIONS,
-        extension_configs=MARKDOWN_EXTENSION_CONFIGS,
+        extension_configs={**MARKDOWN_EXTENSION_CONFIGS, "pymdownx.superfences": {"custom_fences": [{"name": "mermaid", "class": "mermaid", "format": validated_fence}]}},
         output_format="html",
     )
     cleaned = bleach.clean(
@@ -137,6 +148,8 @@ def render_content(text: str, content_format: str) -> SafeString:
         protocols=["http", "https", "mailto"],
         strip=True,
     )
+    for token, diagram in diagrams.items():
+        cleaned = cleaned.replace(f"<p>{token}</p>", diagram)
     return mark_safe(cleaned)
 
 
@@ -172,7 +185,7 @@ def plain_text_preview(text: str, content_format: str) -> str:
     rendered = markdown.markdown(
         source,
         extensions=MARKDOWN_EXTENSIONS,
-        extension_configs=MARKDOWN_EXTENSION_CONFIGS,
+        extension_configs={**MARKDOWN_EXTENSION_CONFIGS, "pymdownx.superfences": {"custom_fences": [{"name": "mermaid", "class": "mermaid", "format": summary_fence}]}},
         output_format="html",
     )
     return strip_math_delimiters(striptags(rendered))

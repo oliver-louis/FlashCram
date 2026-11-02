@@ -313,6 +313,7 @@
             this.field(this.focusedFace).focus({ preventScroll: true });
             return;
           }
+          if (this.$root.querySelector('dialog[open]')) return;
           if (this.$root.querySelector('[data-image-zoom]:not([style*="display: none"])')) return;
           event.preventDefault();
           if (this.preview) this.backToEditing(); else this.close();
