@@ -149,3 +149,13 @@ test('rotation resets baseline and MathLive independently hides actions', () => 
   assert.equal(s.baseline, 390);
   assert.equal(c.keyboardState(s, {width:844, layoutHeight:390, height:390, editable:false, math:true}).open, true);
 });
+
+test('hint editing supports formatting, undo, and equation destination',()=>{
+  const {component,field}=editor('Cue');
+  field.name='hint';component.$refs.hintInput=field;
+  component.histories.hint={entries:[state('Cue')],index:0};
+  field.setSelectionRange(0,3);component.formatText('hint','**');assert.equal(field.value,'**Cue**');
+  component.undo('hint');assert.equal(field.value,'Cue');
+  field.setSelectionRange(3,3);component.focusedFace='hint';component.equationLatex='x_i';component.insertEquation();
+  assert.equal(field.value,'Cue\\(x_i\\)');component.undo('hint');assert.equal(field.value,'Cue');
+});

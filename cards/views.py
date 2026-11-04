@@ -7,6 +7,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .forms import BulkImportForm, CardDraftPreviewForm, CardForm, DeckCreateForm, DeckForm, JsonImportForm, SettingsForm
+from .generation_prompts import DEFAULTS, build_generation_prompt
+from .forms import PromptPreferencesForm
+from .services import get_prompt_preferences, save_prompt_preferences
 from .models import Card, Deck
 from .rendering import RenderedFace, render_card_face, render_content
 from .services import (
@@ -264,7 +267,7 @@ def card_draft_preview(request, deck_id):
         return render(request, "cards/partials/card_editor_errors.html", {"form": form}, status=422)
     data = form.cleaned_data
     current = get_card_for_deck(deck, data["card_id"], request.user) if data["card_id"] else None
-    draft = Card(deck=deck, front=data["front"], back=data["back"],
+    draft = Card(deck=deck, front=data["front"], back=data["back"], hint=data["hint"],
                  content_format=data["content_format"], image_face=data["image_face"])
     if current and not data["remove_image"]:
         draft.image, draft.image_mime = current.image, current.image_mime
@@ -592,6 +595,7 @@ def bulk_import(request):
             "raw_result": raw_result,
             "json_result": json_result,
             "created_count": created_count,
+            **prompt_preferences_context(request.user),
         },
     )
 
@@ -774,3 +778,23 @@ def json_response(payload, filename):
     )
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+def prompt_preferences_context(user):
+    preferences = get_prompt_preferences(user)
+    return {"prompt_preferences": preferences, "prompt_defaults": DEFAULTS,
+            "generation_prompt": build_generation_prompt(preferences),
+            "prompt_form": PromptPreferencesForm(initial=preferences)}
+
+
+@require_POST
+def prompt_preferences(request):
+    form = PromptPreferencesForm(request.POST)
+    if not form.is_valid():
+        return render(request, "cards/partials/prompt_preferences_response.html", {"prompt_form": form}, status=422)
+    preferences = save_prompt_preferences(request.user, form.cleaned_data)
+    if not request.htmx:
+        return redirect("cards:bulk_import")
+    return render(request, "cards/partials/prompt_preferences_response.html", {
+        "saved_preferences": preferences, "generation_prompt": build_generation_prompt(preferences), "prompt_oob": True,
+    })

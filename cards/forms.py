@@ -182,7 +182,7 @@ class CardForm(forms.ModelForm):
 
     class Meta:
         model = Card
-        fields = ["front", "back", "content_format", "tags_text", "status", "image_face"]
+        fields = ["front", "back", "hint", "content_format", "tags_text", "status", "image_face"]
         widgets = {
             "front": forms.Textarea(
                 attrs={
@@ -200,6 +200,7 @@ class CardForm(forms.ModelForm):
                     "x-ref": "backInput",
                 }
             ),
+            "hint": forms.Textarea(attrs={"class": "textarea textarea-bordered min-h-24 w-full rounded-2xl", "rows": 3, "x-ref": "hintInput", "@focus": "focusedFace = 'hint'"}),
             "content_format": forms.Select(attrs={"class": "select select-bordered h-14 w-full rounded-2xl"}),
             "status": forms.Select(attrs={"class": "select select-bordered h-14 w-full rounded-2xl"}),
             "image_face": forms.Select(attrs={"class": "select select-bordered h-14 w-full rounded-2xl"}),
@@ -277,6 +278,7 @@ class CardDraftPreviewForm(forms.Form):
     card_id = forms.UUIDField(required=False)
     front = forms.CharField(required=False, strip=False)
     back = forms.CharField(required=False, strip=False)
+    hint = forms.CharField(required=False, strip=False)
     content_format = forms.ChoiceField(choices=Card.ContentFormat.choices)
     image_face = forms.ChoiceField(choices=Card.ImageFace.choices)
     image_upload = forms.FileField(required=False)
@@ -379,3 +381,21 @@ class JsonImportForm(forms.Form):
         if not (cleaned_data.get("backup_json_text") or "").strip():
             self.add_error("backup_json_text", "Upload a backup JSON file or paste backup JSON before importing.")
         return cleaned_data
+
+
+class PromptPreferencesForm(forms.Form):
+    allow_hints = forms.BooleanField(required=False, label="Allow hints when useful")
+    hint_style = forms.ChoiceField(choices=[("cue", "Short cue"), ("explanation", "Brief guiding explanation")])
+    allow_latex = forms.BooleanField(required=False, label="Allow LaTeX")
+    allow_mermaid = forms.BooleanField(required=False, label="Allow Mermaid when necessary")
+    allow_tables = forms.BooleanField(required=False, label="Allow tables")
+    emphasis = forms.ChoiceField(choices=[("none", "None"), ("light", "Light"), ("moderate", "Moderate")], label="Text emphasis")
+    answer_detail = forms.ChoiceField(choices=[("concise", "Concise"), ("balanced", "Balanced"), ("explanatory", "Explanatory")], label="Answer detail")
+    guidance = forms.CharField(required=False, max_length=2000, label="Additional guidance", widget=forms.Textarea(attrs={"rows": 4}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            field.widget.attrs["x-model"] = "draft." + name
+            field.widget.attrs["class"] = "checkbox checkbox-primary" if isinstance(field, forms.BooleanField) else "textarea textarea-bordered w-full" if name == "guidance" else "select select-bordered w-full"
+        self.fields["hint_style"].widget.attrs[":disabled"] = "!draft.allow_hints"

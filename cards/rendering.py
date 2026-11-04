@@ -85,6 +85,7 @@ class RenderedFace:
     image_data_uri: str
     image_alt: str
     enable_math: bool = False
+    hint_html: SafeString = ""
 
 
 def normalize_display_math_blocks(source: str) -> str:
@@ -165,6 +166,7 @@ def render_card_face(card, face: str) -> RenderedFace:
     text = card.front if face == "front" else card.back
     return RenderedFace(
         html=render_content(text, card.content_format),
+        hint_html=render_content(card.hint, card.content_format) if face == "front" and card.hint.strip() else "",
         image_data_uri=card_image_data_uri(card, face),
         image_alt=f"{card.get_image_face_display()} image",
         enable_math=card.content_format == "markdown",

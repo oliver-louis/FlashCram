@@ -136,7 +136,7 @@
         this.format = this.$refs.form.querySelector('[name=content_format]:checked').value;
         this.imageUrl = this.$refs.existingImage?.content.textContent.trim() || '';
         this.imageName = this.imageUrl ? 'Current image' : '';
-        for (const face of ['front', 'back']) this.histories[face] = { entries: [snapshot(this.field(face))], index: 0 };
+        for (const face of ['front', 'back', 'hint']) this.histories[face] = { entries: [snapshot(this.field(face))], index: 0 };
         this.baseline = this.fingerprint();
         this.unloadHandler = event => { if (this.dirty()) { event.preventDefault(); event.returnValue = ''; } };
         this.focusHandler = event => {
@@ -272,13 +272,13 @@
       },
       beforeInput(event) {
         const face = event.target.name;
-        if (!['front', 'back'].includes(face)) return;
+        if (!['front', 'back', 'hint'].includes(face)) return;
         if (['historyUndo', 'historyRedo'].includes(event.inputType)) { event.preventDefault(); this.undo(face, event.inputType === 'historyRedo'); }
         else this.rememberCursor(face);
       },
       onInput(event) {
         const face = event.target.name;
-        if (['front', 'back'].includes(face)) {
+        if (['front', 'back', 'hint'].includes(face)) {
           if (this.format === 'markdown' && !event.isComposing && event.inputType === 'insertText' && event.data === ' ') {
             const state = spaceTypedList(snapshot(event.target));
             event.target.value = state.value;
@@ -294,7 +294,7 @@
       onKeydown(event) {
         if (event.isComposing || event.defaultPrevented) return;
         const face = event.target.name;
-        if (['front', 'back'].includes(face)) {
+        if (['front', 'back', 'hint'].includes(face)) {
           const modifier = (event.ctrlKey || event.metaKey) && !event.altKey;
           const key = event.key.toLowerCase();
           if (modifier && (key === 'z' || key === 'y')) { event.preventDefault(); this.undo(face, key === 'y' || event.shiftKey); return; }
@@ -392,6 +392,7 @@
           this.$nextTick(() => {
             const errors = this.$root.querySelector('#card-editor-errors');
             if (errors.querySelector('[data-error-field="status"]')) this.$refs.options.open = true;
+            if (errors.querySelector('[data-error-field="hint"]')) this.$refs.hintOptions.open = true;
             errors.focus();
           });
           return;
@@ -428,7 +429,7 @@
       resetDraft(tags) {
         this.preview = false;
         this.pendingFocus = 'front';
-        for (const face of ['front', 'back']) {
+        for (const face of ['front', 'back', 'hint']) {
           this.field(face).value = '';
           this.histories[face] = { entries: [snapshot(this.field(face))], index: 0 };
         }
@@ -438,6 +439,7 @@
         this.removeImage(); this.removeExisting = false;
         this.equationLatex = ''; this.$refs.mathField.value = '';
         this.focusedFace = 'front';
+        this.$refs.hintOptions.open = false;
         this.$root.querySelector('#card-editor-errors').replaceChildren();
         this.$root.querySelector('#card-editor-preview').replaceChildren();
         this.$refs.notice.textContent = 'Card saved. Ready for another.';

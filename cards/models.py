@@ -106,6 +106,7 @@ class Card(models.Model):
     deck = models.ForeignKey(Deck, on_delete=models.CASCADE, related_name="cards")
     front = models.TextField()
     back = models.TextField()
+    hint = models.TextField(blank=True, default="")
     content_format = models.CharField(
         max_length=20,
         choices=ContentFormat.choices,
@@ -185,6 +186,7 @@ class Settings(models.Model):
         default=DefaultContentFormat.PLAINTEXT,
     )
     review_swipe_enabled = models.BooleanField(default=True)
+    generation_prompt_preferences = models.JSONField(default=dict, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

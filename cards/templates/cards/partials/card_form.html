@@ -30,6 +30,11 @@
             {% include "cards/partials/card_editor_face.html" with field=form.front face="front" label="Front" %}
             {% include "cards/partials/card_editor_face.html" with field=form.back face="back" label="Back" %}
           </div>
+          <details x-ref="hintOptions" {% if form.hint.value or form.hint.errors %}open{% endif %}>
+            <summary class="cursor-pointer font-semibold">Hint — front only (optional)</summary>
+            <div class="mt-3">{% include "cards/partials/card_editor_face.html" with field=form.hint face="hint" label="Hint" %}</div>
+            <p class="mt-2 text-sm fc-muted">A small cue, hidden until revealed. Uses the card's content format.</p>
+          </details>
           <div x-show="format === 'markdown'" x-cloak class="space-y-3">
             <details class="text-sm fc-muted"><summary class="cursor-pointer font-semibold">Markdown help & shortcuts</summary><p class="mt-2">Ctrl/Cmd+B: bold · Ctrl/Cmd+I: italic · Ctrl/Cmd+Z: undo. Start lists with <code>- </code> or <code>1. </code>; Enter continues, an empty item ends the list. Lists need a blank line after prose; typing a marker or using a list button adds it for you. Pasted Markdown is preserved.</p></details>
             <div class="rounded-2xl border border-base-content/10 bg-base-200/70 p-3">

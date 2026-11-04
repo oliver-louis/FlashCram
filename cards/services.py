@@ -288,6 +288,7 @@ def copy_cards_to_deck(cards, deck) -> int:
             deck=deck,
             front=card.front,
             back=card.back,
+            hint=card.hint,
             content_format=card.content_format,
             tags=list(card.tags or []),
             times_reviewed=card.times_reviewed,
@@ -650,6 +651,7 @@ class ParsedCard:
     back: str
     tags: list[str]
     content_format: str = ""
+    hint: str = ""
 
 
 @dataclass(frozen=True)
@@ -756,6 +758,13 @@ def parse_authoring_json_cards(payload, user=None) -> BulkParseResult:
         front = str(raw_card.get("front") or "").strip()
         back = str(raw_card.get("back") or "").strip()
         content_format = (raw_card.get("format") or raw_card.get("contentFormat") or default_format)
+        hint = raw_card.get("hint")
+        if hint is None:
+            hint = ""
+        if not isinstance(hint, str):
+            skipped += 1
+            continue
+        hint = hint.strip()
         tags = raw_card.get("tags", [])
         if tags is None:
             tags = []
@@ -772,6 +781,7 @@ def parse_authoring_json_cards(payload, user=None) -> BulkParseResult:
             ParsedCard(
                 front=front,
                 back=back,
+                hint=hint,
                 tags=normalize_tags(tags),
                 content_format=content_format,
             )
@@ -799,6 +809,7 @@ def create_cards_from_parsed(deck, parsed_cards: list[ParsedCard], user=None) ->
                 deck=deck,
                 front=parsed.front,
                 back=parsed.back,
+                hint=parsed.hint,
                 content_format=content_format,
                 tags=parsed.tags,
             )
@@ -858,6 +869,7 @@ def serialize_card(card) -> dict:
         "id": str(card.id),
         "front": card.front,
         "back": card.back,
+        "hint": card.hint,
         "contentFormat": card.content_format,
         "tags": card.tags or [],
         "image": image_to_base64(card.image),
@@ -966,6 +978,7 @@ def import_backup(payload, user=None) -> dict[str, int]:
                     "deck": deck,
                     "front": card_data.get("front", ""),
                     "back": card_data.get("back", ""),
+                    "hint": card_data.get("hint") or "",
                     "content_format": card_data.get("contentFormat", Card.ContentFormat.PLAINTEXT),
                     "tags": normalize_tags(card_data.get("tags", [])),
                     "image": image_from_base64(card_data.get("image")),
@@ -993,3 +1006,16 @@ def restore_timestamps(model, object_id, data) -> None:
         updates["updated_at"] = updated_at
     if updates:
         model.objects.filter(pk=object_id).update(**updates)
+
+
+def get_prompt_preferences(user):
+    from .generation_prompts import normalize_preferences
+    return normalize_preferences(get_settings(user).generation_prompt_preferences)
+
+
+def save_prompt_preferences(user, preferences):
+    from .generation_prompts import normalize_preferences
+    settings = get_settings(user)
+    settings.generation_prompt_preferences = normalize_preferences(preferences)
+    settings.save(update_fields=["generation_prompt_preferences", "updated_at"])
+    return settings.generation_prompt_preferences

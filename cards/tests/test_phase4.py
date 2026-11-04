@@ -138,17 +138,16 @@ class RenderingTests(TestCase):
         self.assertIn("overflow-x: auto", css)
         self.assertIn("-webkit-overflow-scrolling: touch", css)
 
-    def test_review_text_has_conservative_fit_guards(self):
+    def test_review_and_preview_share_reflow_fitter(self):
         css = Path("static_src/input.css").read_text()
-        html = Path("templates/base.html").read_text()
-
-        self.assertIn("--fc-review-text-scale", css)
-        self.assertIn("--fc-review-reserved-height", css)
-        self.assertIn(".fc-review-face-fit > .fc-review-face-inner", css)
-        self.assertIn("transform: scale(var(--fc-review-text-scale, 1))", css)
-        self.assertIn("const minScale = 0.8", html)
-        self.assertIn("window.flashcramFitReviewText = function(root)", html)
-        self.assertIn("querySelectorAll('#review-panel .fc-review-content')", html)
+        script = Path("static/js/card-fit.js").read_text()
+        self.assertNotIn("--fc-review-text-scale", css)
+        self.assertIn("face.style.fontSize", script)
+        self.assertIn(".fc-review-content", script)
+        for name in ("review_card.html", "card_preview_surface.html"):
+            template = Path("cards/templates/cards/partials", name).read_text()
+            self.assertIn("fc-review-face-inner", template)
+            self.assertIn("fc-review-content", template)
 
     def test_review_swipe_surface_does_not_transform_layout_card(self):
         css = Path("static_src/input.css").read_text()
@@ -262,11 +261,11 @@ class PreviewViewTests(AuthenticatedTestCase):
         html = response.content.decode()
 
         self.assertIn("window.flashcramFitMath = function(root)", html)
-        self.assertIn("window.flashcramFitReviewText = function(root)", html)
+        self.assertIn(staticfiles_storage.url("js/card-fit.js"), html)
         self.assertIn("querySelectorAll('[data-render-math=\"true\"]')", html)
-        self.assertIn("querySelectorAll('#review-panel .fc-review-content')", html)
+        self.assertIn("querySelectorAll('.fc-review-content')", Path("static/js/card-fit.js").read_text())
         self.assertIn("window.flashcramFitMath(scope)", html)
-        self.assertIn("window.flashcramFitReviewText(scope)", html)
+        self.assertIn("window.flashcramFitReviewText?.(scope)", html)
         self.assertIn("window.flashcramRenderMath(document)", html)
         self.assertIn('document.addEventListener("htmx:afterSwap"', html)
         self.assertIn('window.addEventListener("resize", window.flashcramRefitMath)', html)

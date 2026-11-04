@@ -301,3 +301,19 @@ Markdown faces can contain fenced `mermaid` blocks, including inside `front`/`ba
 Diagrams render as static images with an enlarged view in review and previews. Mermaid loads from local assets only when diagrams are present. Plaintext stays literal. Invalid or unsupported diagrams show an error and escaped source; the card remains usable. Limits are four diagrams per face, 10,000 characters per diagram and 100 edges. Configuration directives, HTML, links, callbacks, images and custom styles are prohibited. Authoring JSON still does not import image attachments or raw SVG.
 
 The built-in generation prompt makes diagrams opt-in or reserved for cases where they explain essential structure substantially better than text. Do not expect every deck to contain diagrams.
+
+### Automatic card text fitting
+
+Review and both card previews use the largest body text size that fits their available content area. On phones, dense cards use tighter spacing and can shrink to 16px (respecting larger root text sizes); desktop reduction stays within 20%. Text reflows instead of being visually scaled. Tables preserve normal word boundaries, with contained horizontal scrolling when too wide. Oversized cards remain scrollable at the minimum readable size. Images, code blocks and diagrams keep their own sizing rules. Browser pinch zoom is not compensated by further text shrinking.
+
+### Optional front-face hints
+
+Cards can have one optional hint. Add or edit it in **Hint — front only** (also available while editing during review). Hints inherit the card's format and support the same sanitized Markdown, math and Mermaid rendering. The front shows a compact **Show hint / Hide hint** button at the bottom, expanding smaller hint text when requested; hint interaction never flips or grades the card. Every card display and flip starts concealed. Collapsed hints reserve only the button space; expanded hints participate in automatic text fitting. Cards without hints add no extra space.
+
+Authoring JSON (`flashcram.cards.v1`) accepts an optional `"hint"` string. Omitted, null or blank means no hint; other types invalidate that card. The built-in LLM prompt omits hints by default and requests short, useful cues without revealing answers. Copying and full backups preserve hints; old backups restore empty hints. Raw-text imports and image placement are unchanged.
+
+### Customize the generation prompt
+
+In Bulk Import, expand **Prompt for generating FlashCram JSON**, then choose **Customize prompt**. Allow or disable hints, LaTeX, Mermaid and tables; choose hint style, emphasis and answer detail, or add up to 2,000 characters of guidance. Defaults keep hints and diagrams sparse and optional. **Apply and save** updates the displayed prompt and saves choices to your account across devices. Cancel/X/Escape discards unapplied changes; Reset to defaults changes the draft until applied. Copy uses exactly the displayed prompt and reports clipboard failures.
+
+Preferences guide an external LLM, not the importer: all supported JSON remains accepted regardless of these choices. Required JSON, escaping and safety rules take precedence over additional guidance. Personal preferences are outside deck/card backups, as with other account settings. No LLM API call or credentials are involved.

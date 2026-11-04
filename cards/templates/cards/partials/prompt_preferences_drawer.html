@@ -1,0 +1,47 @@
+{{ prompt_preferences|json_script:"prompt-options-data" }}
+{{ prompt_defaults|json_script:"prompt-defaults-data" }}
+<dialog x-ref="drawer" class="fc-prompt-drawer" aria-labelledby="prompt-options-title"
+        @cancel.prevent="cancel()" @click="if ($event.target === $el) cancel()">
+  <form x-ref="optionsForm" method="post" action="{% url 'cards:prompt_preferences' %}"
+        hx-post="{% url 'cards:prompt_preferences' %}" hx-target="#prompt-options-status" hx-swap="innerHTML" hx-request='{"timeout":20000}'
+        @htmx:before-request="if (busy) $event.preventDefault(); else busy = true" @htmx:before-swap="beforeSwap($event)" @htmx:after-request="afterRequest($event)">
+    {% csrf_token %}
+    <header class="flex items-center justify-between gap-3 border-b border-base-content/10 p-4">
+      <h2 id="prompt-options-title" x-ref="drawerHeading" tabindex="-1" class="text-xl font-bold">Customize prompt</h2>
+      <button type="button" class="btn btn-ghost btn-square" aria-label="Close prompt options" @click="cancel()" :disabled="busy">×</button>
+    </header>
+    <div class="fc-prompt-drawer-body space-y-6 p-4">
+      <p class="text-sm fc-muted">Saved to your account across devices. These options guide generation; they do not restrict what you can import. Apply to update the prompt below.</p>
+      <div id="prompt-options-status" tabindex="-1" role="status" aria-live="polite" x-ref="status"></div>
+      <fieldset :disabled="busy" class="space-y-3">
+        <legend class="font-bold mb-3">Learning support</legend>
+        <label class="flex items-center gap-3">{{ prompt_form.allow_hints }}<span>{{ prompt_form.allow_hints.label }}</span></label>
+        <p class="text-xs fc-muted">Optional cues only when useful or requested; never a hint quota.</p>
+        <label class="form-control"><span class="label-text">Hint style</span>{{ prompt_form.hint_style }}</label>
+        <input type="hidden" name="hint_style" :value="draft.hint_style" :disabled="draft.allow_hints">
+        <p class="text-xs fc-muted">Both styles guide retrieval without giving away the answer.</p>
+      </fieldset>
+      <fieldset :disabled="busy" class="space-y-3">
+        <legend class="font-bold mb-3">Formatting</legend>
+        <label class="flex items-center gap-3">{{ prompt_form.allow_latex }}<span>{{ prompt_form.allow_latex.label }}</span></label>
+        <label class="flex items-center gap-3">{{ prompt_form.allow_mermaid }}<span>{{ prompt_form.allow_mermaid.label }}</span></label>
+        <p class="text-xs fc-muted">Diagrams stay sparse and must explain something substantially better than text.</p>
+        <label class="flex items-center gap-3">{{ prompt_form.allow_tables }}<span>{{ prompt_form.allow_tables.label }}</span></label>
+        <label class="form-control"><span class="label-text">Text emphasis</span>{{ prompt_form.emphasis }}</label>
+        <p class="text-xs fc-muted">Controls bold and italics, not necessary code or math formatting.</p>
+      </fieldset>
+      <fieldset :disabled="busy" class="space-y-3">
+        <legend class="font-bold mb-3">Answer style</legend>
+        <label class="form-control"><span class="label-text">Answer detail</span>{{ prompt_form.answer_detail }}</label>
+        <p class="text-xs fc-muted">All styles keep cards atomic and focused.</p>
+        <label class="form-control"><span class="label-text">Additional guidance (optional)</span>{{ prompt_form.guidance }}</label>
+        <p class="text-xs fc-muted">Up to 2,000 characters. Topic or exam guidance cannot override required JSON rules or disabled features.</p>
+      </fieldset>
+      <button class="btn btn-ghost" type="button" @click="reset()" :disabled="busy">Reset to defaults</button>
+    </div>
+    <footer class="flex justify-end gap-2 border-t border-base-content/10 p-4">
+      <button type="button" class="btn btn-ghost" @click="cancel()" :disabled="busy">Cancel</button>
+      <button type="submit" class="btn btn-primary" :disabled="busy" x-text="busy ? 'Saving…' : 'Apply and save'">Apply and save</button>
+    </footer>
+  </form>
+</dialog>

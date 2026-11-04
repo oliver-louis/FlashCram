@@ -53,7 +53,8 @@ class DiagramImportTests(AuthenticatedTestCase):
         self.assertContains(response, 'Do not add diagrams by default.')
         self.assertContains(response, 'Do not aim for a diagram quota')
         from pathlib import Path
-        html = Path('cards/templates/cards/bulk_import.html').read_text()
+        from cards.generation_prompts import build_generation_prompt
+        html = build_generation_prompt()
         decoder = json.JSONDecoder()
         examples = re.findall(r'(?m)^\{\n', html)
         self.assertGreaterEqual(len(examples), 5)

@@ -1,0 +1,14 @@
+{
+  "schema": "flashcram.cards.v1",
+  "deck": "Card fitting regression",
+  "cards": [
+    {
+      "front": "Choose the shortest-path algorithm for each graph condition.",
+      "back": "| Graph condition | Algorithm |\n| --- | --- |\n| Unweighted or uniform positive weights | BFS |\n| Non-negative weights | Dijkstra |\n| Directed acyclic graph, even with negative weights | DAG shortest paths |\n\nWith adjacency lists, BFS and DAG shortest paths run in \\(O(V+E)\\). Heap-based Dijkstra runs in \\(O((V+E)\\log V)\\).",
+      "format": "markdown",
+      "tags": [
+        "fitting"
+      ]
+    }
+  ]
+}

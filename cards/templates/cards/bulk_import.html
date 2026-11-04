@@ -3,7 +3,7 @@
 {% block title %}Bulk import | FlashCram{% endblock %}
 
 {% block content %}
-  <div class="flex flex-col gap-6">
+  <div class="flex flex-col gap-6" x-data="promptCustomizer">
     <a class="btn btn-ghost w-fit rounded-2xl px-2" href="{% url 'cards:home' %}">‹ Back to decks</a>
     <header class="fc-card rounded-3xl p-5 sm:p-6">
       <p class="text-sm font-semibold uppercase tracking-[0.18em] text-primary">FlashCram</p>
@@ -89,12 +89,14 @@ Tags: shell, grep</code></pre>
     {
       "front": "Question",
       "back": "Answer",
+      "hint": "Optional retrieval cue; omit when unnecessary",
       "tags": ["tag1", "tag2"],
       "format": "plaintext"
     }
   ]
 }</code></pre>
-              <p class="fc-muted">Use <code>format</code> as <code>plaintext</code> or <code>markdown</code>. Backup JSON files should be imported from Settings.</p>
+              <p class="fc-muted">Prompt preferences guide generation only and do not restrict accepted imports. Use <code>format</code> as <code>plaintext</code> or <code>markdown</code>. Backup JSON files should be imported from Settings.</p>
+              <p><code>hint</code> is an optional string shown through a collapsible hint button at the bottom of the front. Omit it, use <code>null</code>, or use an empty string for no hint. Hints follow the card's Plain text / Markdown format, including math and Mermaid; they do not replace the required front or back. Other hint value types are invalid. Escape quotes and newlines as for other card text.</p>
               <p>Optional Mermaid diagrams go inside <code>front</code> or <code>back</code> as fenced <code>mermaid</code> blocks on Markdown cards. No additional JSON fields are needed. Put blank lines around the block; encode line breaks as <code>\n</code> in JSON. Images and raw SVG are not supported by authoring JSON.</p>
               <p>Supported: flowcharts/trees, sequence, state, class, entity relationship, mindmap, pie, and XY charts. Limits: four diagrams per face, 10,000 characters per diagram, 100 edges. Diagrams are optional; ordinary cards need no changes.</p>
               <p>Example card object for the cards array:</p>
@@ -109,131 +111,16 @@ Tags: shell, grep</code></pre>
             </div>
           </details>
 
-          <details class="collapse collapse-arrow rounded-3xl border border-base-content/10 bg-base-200/70" x-data="{ copied: false }">
+          <details class="collapse collapse-arrow rounded-3xl border border-base-content/10 bg-base-200/70">
             <summary class="collapse-title font-bold">Prompt for generating FlashCram JSON</summary>
             <div class="collapse-content space-y-3 text-sm">
-              <div class="flex items-center justify-between gap-3">
-                <p class="fc-muted">Copy this into an LLM alongside your source notes.</p>
-                <button
-                  class="btn btn-secondary btn-sm shrink-0 rounded-2xl"
-                  type="button"
-                  @click="(navigator.clipboard?.writeText($refs.llmPrompt.innerText.trim()) || Promise.resolve()).then(() => { copied = true; setTimeout(() => copied = false, 1500) })"
-                  x-text="copied ? 'Copied' : 'Copy prompt'"
-                >Copy prompt</button>
+              <p class="fc-muted">Copy this into an LLM alongside your source notes.</p>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="btn btn-outline btn-sm" @click="open()">Customize prompt</button>
+                <button type="button" class="btn btn-secondary btn-sm" @click="copy()">Copy prompt</button>
               </div>
-              <pre class="max-h-96 overflow-auto whitespace-pre-wrap rounded-2xl bg-base-300 p-3 text-xs leading-relaxed"><code x-ref="llmPrompt">Generate FlashCram flashcards as valid JSON only.
-
-Output JSON only. Do not wrap the response in Markdown fences. Do not add commentary.
-
-Use exactly this schema:
-
-{
-  "schema": "flashcram.cards.v1",
-  "deck": "Deck name here",
-  "cards": [
-    {
-      "front": "required question text",
-      "back": "required answer text",
-      "tags": ["lowercase", "tags"],
-      "format": "plaintext"
-    }
-  ]
-}
-
-Rules:
-- Use "plaintext" only for simple cards with no formatting needs.
-- Use "markdown" whenever a card includes code, commands, inline code, multi-line examples, bullet lists, numbered lists, tables, equations, or LaTeX.
-- Preserve useful code examples, formulas, definitions, and examples from the source material.
-- Make each card atomic and exam-focused.
-- Prefer multiple focused cards over one broad card.
-- Keep tags lowercase, short, and reusable.
-- Do not include ids, counters, timestamps, image fields, status fields, or backup/export fields.
-- Ensure every card has non-empty front, non-empty back, a tags array, and a valid format.
-
-JSON escaping rules:
-- Output must be valid JSON.
-- Inside JSON strings, encode line breaks as \n.
-- Escape double quotes inside card text as \".
-- Escape all LaTeX backslashes inside JSON strings.
-- Correct: \\sum_{i}, \\frac{a}{b}, \\neg A, \\mid
-- Incorrect: \sum_i, \frac{a}{b}, \neg A
-- Escape inline LaTeX delimiters as \\(...\\) inside JSON strings.
-- Do not use bare $...$ math.
-
-Markdown formatting rules:
-- Use a blank line before and after every Markdown block.
-- Markdown blocks include bullet lists, numbered lists, fenced code blocks, display math blocks, and tables.
-- Bullet lists must have a blank line before the first - item.
-- Numbered lists must have a blank line before the first 1. item.
-- Do not place a list, display math block, code fence, or table immediately after a sentence without a blank line.
-
-LaTeX/math rules:
-- Use \\(...\\) for inline math.
-- Use $$...$$ for display math.
-- Do not use \\[...\\] display math.
-- Put display math on its own block with a blank line before and after it.
-- Prefer explicit braces for subscripts and superscripts.
-- Correct: \\sum_{i}, x_{i}, p_{i}
-- Avoid: \\sum_i, x_i, p_i
-- Use \\mid instead of raw | inside probability expressions where appropriate.
-- Prefer: P(A \\mid X)
-- Avoid: P(A|X)
-
-Optional Mermaid diagram rules:
-- Do not add diagrams by default. Include one only when explicitly requested, or when it is necessary to communicate an important relationship, structure, sequence, or data pattern substantially more clearly than concise text, a list, or a table.
-- Never add decorative, redundant, speculative, or unnecessarily complex diagrams. Do not aim for a diagram quota; entire decks may contain none.
-- Use format "markdown" and a fenced block labelled mermaid inside front or back. Put a blank line before and after the fence. The outer response is still JSON only, not a fenced JSON block.
-- Supported types: flowchart (or graph), sequenceDiagram, stateDiagram-v2, classDiagram, erDiagram, mindmap, pie, xychart (or xychart-beta).
-- Prefer small diagrams with short, quoted labels where needed, and a concise textual explanation. Use accTitle and accDescr for accessible descriptions.
-- Place diagrams on the back unless the question specifically requires interpreting a diagram on the front. Do not leak an answer through a front-face diagram.
-- No HTML, SVG, frontmatter, configuration/init directives, links, callbacks, external images/resources, icons, or custom styling directives.
-- Maximum four diagrams per face, 10,000 characters per diagram and 100 edges; keep well below these limits.
-- Never invent chart data or assume Mermaid calculates mathematical plots. Use only data supported by the source material.
-- Escape diagram newlines and quotes correctly within the JSON string, just like other Markdown.
-
-Code formatting rules:
-- For inline code, use backticks, e.g. `pthread_create()`, `ls -la`, `$HOME`.
-- For multi-line code, use fenced code blocks with a language label where appropriate, e.g. c, bash, python.
-- Shell variables like `$HOME`, `$PATH`, `$1`, and `$?` should stay literal inside inline code or fenced code blocks.
-- Do not treat shell variables as LaTeX.
-
-Example optional Mermaid card (use only when warranted):
-
-{
-  "front": "Show the two branches of a binary tree.",
-  "back": "Each node has at most two children.\n\n```mermaid\nflowchart TD\n  Root --> Left\n  Root --> Right\n```",
-  "tags": [
-    "trees"
-  ],
-  "format": "markdown"
-}
-
-Example markdown card with math:
-
-{
-  "front": "What is the expected utility formula?",
-  "back": "Expected utility is the probability-weighted sum of utility across possible outcomes.\n\n$$\nEU=\\sum_{i} p_{i}u(x_{i})\n$$\n\nThis means each outcome's utility is weighted by its probability.",
-  "tags": ["economics", "utility", "expected-utility"],
-  "format": "markdown"
-}
-
-Example markdown card with a list:
-
-{
-  "front": "List common explanations for giving in dictator-game-style experiments.",
-  "back": "Common explanations include:\n\n- altruism\n- equality or fairness\n- warm glow\n- self-image\n- social norms of equal sharing\n- experimenter demand effects",
-  "tags": ["economics", "behavioural-economics", "experiments"],
-  "format": "markdown"
-}
-
-Example markdown card with code:
-
-{
-  "front": "Write a C snippet that creates a pthread using `pthread_create()`.",
-  "back": "```c\npthread_t tid;\npthread_create(&tid, NULL, worker, NULL);\n```\n\nThe return value is \\(0\\) on success.",
-  "tags": ["c", "threads", "pthread"],
-  "format": "markdown"
-}</code></pre>
+              <p role="status" aria-live="polite" x-text="copyMessage"></p>
+              {% include "cards/partials/generation_prompt.html" %}
             </div>
           </details>
 
@@ -247,6 +134,8 @@ Example markdown card with code:
         </div>
       </section>
     </form>
+
+    {% include "cards/partials/prompt_preferences_drawer.html" %}
 
     {% if raw_result %}
       <section class="fc-card rounded-3xl p-5">

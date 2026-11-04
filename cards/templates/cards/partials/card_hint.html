@@ -1,0 +1,12 @@
+<div class="fc-hint" data-hint data-no-swipe data-hint-hidden="true"
+     x-data="cardHint" x-id="['hint-content']" :data-hint-hidden="shown ? 'false' : 'true'"
+     @click.stop @keydown.stop>
+  <button type="button" class="fc-hint-toggle" @click.stop="toggle()"
+          :aria-expanded="shown" aria-expanded="false" :aria-controls="$id('hint-content')"
+          x-text="shown ? 'Hide hint' : 'Show hint'">Show hint</button>
+  <div class="fc-hint-content" x-show="shown" x-cloak :id="$id('hint-content')" aria-hidden="true" :aria-hidden="!shown" inert :inert="!shown">
+    <div class="fc-rendered-content prose max-w-none" data-rendered-content{% if rendered_face.enable_math %} data-render-math="true"{% endif %}>
+      {{ rendered_face.hint_html }}
+    </div>
+  </div>
+</div>

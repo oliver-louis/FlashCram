@@ -1,5 +1,5 @@
     <div
-      x-data="{ revealed: false, toggleReveal() { this.revealed = !this.revealed; this.$nextTick(() => window.flashcramFitMath?.(this.$root)); } }"
+      x-data="{ revealed: false, toggleReveal() { this.revealed = !this.revealed; this.$nextTick(() => { window.flashcramFitMath?.(this.$root); window.flashcramFitReviewText?.(this.$root); }); } }"
       role="button"
       tabindex="0"
       class="fc-preview-surface fc-review-card flex min-h-0 flex-col rounded-3xl p-6 text-left transition active:scale-[0.99]"
@@ -18,16 +18,18 @@
           <span class="badge badge-outline min-w-14 rounded-xl text-center" x-text="revealed ? 'Back' : 'Flip'" :aria-label="revealed ? 'Tap card to flip back to the front' : 'Tap card to reveal the back'" :title="revealed ? 'Tap card to flip back' : 'Tap card to reveal'">Flip</span>
         </div>
       </div>
-      <div class="mt-8 flex flex-1 flex-col justify-center overflow-y-auto text-2xl leading-tight sm:text-3xl" x-show="!revealed">
-        {% if draft_preview and not card.front %}<p class="text-base fc-muted">Front is empty</p>{% endif %}
-        {% with rendered_face=rendered_front %}
-          {% include "cards/partials/rendered_face.html" %}
-        {% endwith %}
-      </div>
-      <div class="mt-8 flex flex-1 flex-col justify-center overflow-y-auto text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
-        {% if draft_preview and not card.back %}<p class="text-base fc-muted">Back is empty</p>{% endif %}
-        {% with rendered_face=rendered_back %}
-          {% include "cards/partials/rendered_face.html" %}
-        {% endwith %}
+      <div class="fc-review-content mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+        <div class="fc-review-face text-2xl leading-tight sm:text-3xl" x-show="!revealed">
+          <div class="fc-review-face-inner">
+            {% if draft_preview and not card.front %}<p class="text-base fc-muted">Front is empty</p>{% endif %}
+            {% with rendered_face=rendered_front %}{% include "cards/partials/rendered_face.html" %}{% endwith %}
+          </div>
+        </div>
+        <div class="fc-review-face text-2xl leading-tight sm:text-3xl" x-cloak x-show="revealed">
+          <div class="fc-review-face-inner">
+            {% if draft_preview and not card.back %}<p class="text-base fc-muted">Back is empty</p>{% endif %}
+            {% with rendered_face=rendered_back %}{% include "cards/partials/rendered_face.html" %}{% endwith %}
+          </div>
+        </div>
       </div>
     </div>

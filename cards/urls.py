@@ -5,6 +5,7 @@ from . import views
 app_name = "cards"
 
 urlpatterns = [
+    path("bulk-import/prompt-preferences/", views.prompt_preferences, name="prompt_preferences"),
     path("", views.home, name="home"),
     path("archived/", views.archived_decks, name="archived_decks"),
     path("decks/new/", views.deck_create, name="deck_create"),

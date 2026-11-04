@@ -774,7 +774,7 @@ class ReviewAllViewTests(AuthenticatedTestCase):
         html = response.content.decode()
 
         self.assertNotIn("Tags</button>", html[html.index("flex items-center justify-between gap-3"):html.index("fc-review-content")])
-        self.assertLess(html.index("fc-review-content"), html.index("fc-review-tags"))
+        self.assertLess(html.index('<div class="fc-review-content'), html.index('<div class="fc-review-tags'))
 
     def test_review_edit_updates_card_and_returns_to_session(self):
         card = self.make_card("old", tags=["before"])

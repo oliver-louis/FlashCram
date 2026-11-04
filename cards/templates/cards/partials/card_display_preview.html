@@ -16,7 +16,7 @@
   x-show="open"
   x-transition
   @click.self="open = false"
-  @keydown.escape.window="open = false"
+  @keydown.escape.window="if (!$event.defaultPrevented &amp;&amp; !$root.querySelector('dialog[open], [data-image-zoom]:not([style*=none])')) open = false"
 >
   <section class="flex max-h-[92vh] w-full max-w-2xl flex-col gap-3">
     <div class="fc-glass flex items-center justify-between gap-3 rounded-3xl p-3">

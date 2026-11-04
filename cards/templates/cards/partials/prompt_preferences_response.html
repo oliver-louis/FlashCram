@@ -1,0 +1,2 @@
+{% if prompt_form.errors %}<div class="alert alert-error block" role="alert"><p>Please check the prompt options:</p>{{ prompt_form.errors }}</div>{% endif %}
+{% if saved_preferences %}<p class="text-success" role="status">Prompt options saved.</p>{{ saved_preferences|json_script:"saved-prompt-options" }}{% include "cards/partials/generation_prompt.html" %}{% endif %}
